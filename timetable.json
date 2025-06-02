@@ -1,0 +1,1672 @@
+[
+  {
+    "id": 2042290,
+    "date": 20250604,
+    "startTime": 740,
+    "endTime": 1440,
+    "lstype": "Lesson",
+    "code": "irregular",
+    "lsnumber": 81296,
+    "lstext": "Prüfung nach Plan VABR - BPKM Metall",
+    "substText": "Prüfung nach Plan VABR - BPKM Metall",
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [],
+    "ro": [
+      {
+        "id": 87,
+        "name": "751",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2042732,
+    "date": 20250605,
+    "startTime": 740,
+    "endTime": 1540,
+    "lstype": "Lesson",
+    "code": "irregular",
+    "lsnumber": 91796,
+    "lstext": "Prüfung nach Plan VABR - B1 mündlich",
+    "substText": "Prüfung nach Plan VABR - B1 mündlich",
+    "kl": [
+      {
+        "id": 2724,
+        "name": "VABR1",
+        "orgid": null,
+        "orgname": null
+      },
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      },
+      {
+        "id": 104,
+        "name": "803",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2032934,
+    "date": 20250604,
+    "startTime": 1305,
+    "endTime": 1350,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 376000,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 9,
+        "name": "BFK",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2032937,
+    "date": 20250604,
+    "startTime": 1355,
+    "endTime": 1440,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 376000,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 9,
+        "name": "BFK",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2032940,
+    "date": 20250606,
+    "startTime": 1125,
+    "endTime": 1210,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 376000,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 9,
+        "name": "BFK",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2032943,
+    "date": 20250606,
+    "startTime": 1215,
+    "endTime": 1300,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 376000,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 9,
+        "name": "BFK",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2018959,
+    "date": 20250605,
+    "startTime": 1355,
+    "endTime": 1440,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 106000,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 29,
+        "name": "CT",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 58,
+        "name": "638",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2018962,
+    "date": 20250605,
+    "startTime": 1455,
+    "endTime": 1540,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 106000,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 29,
+        "name": "CT",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 58,
+        "name": "638",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2036912,
+    "date": 20250602,
+    "startTime": 1125,
+    "endTime": 1210,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 106200,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 30,
+        "name": "D",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2036915,
+    "date": 20250602,
+    "startTime": 1215,
+    "endTime": 1300,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 106200,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 30,
+        "name": "D",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2036918,
+    "date": 20250602,
+    "startTime": 1355,
+    "endTime": 1440,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 106200,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 30,
+        "name": "D",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2036921,
+    "date": 20250602,
+    "startTime": 1455,
+    "endTime": 1540,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 106200,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 30,
+        "name": "D",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 1858125,
+    "date": 20250603,
+    "startTime": 740,
+    "endTime": 825,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 106200,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 30,
+        "name": "D",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 1858128,
+    "date": 20250603,
+    "startTime": 830,
+    "endTime": 915,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 106200,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 30,
+        "name": "D",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 1858131,
+    "date": 20250603,
+    "startTime": 1355,
+    "endTime": 1440,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 106200,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 30,
+        "name": "D",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2001276,
+    "date": 20250603,
+    "startTime": 1455,
+    "endTime": 1540,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 106200,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 30,
+        "name": "D",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 1858134,
+    "date": 20250605,
+    "startTime": 740,
+    "endTime": 825,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 106200,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 30,
+        "name": "D",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 1858137,
+    "date": 20250605,
+    "startTime": 830,
+    "endTime": 915,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 106200,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 30,
+        "name": "D",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 1858140,
+    "date": 20250605,
+    "startTime": 935,
+    "endTime": 1020,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 106200,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 30,
+        "name": "D",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 1858143,
+    "date": 20250605,
+    "startTime": 1025,
+    "endTime": 1110,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 106200,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 30,
+        "name": "D",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2037263,
+    "date": 20250602,
+    "startTime": 740,
+    "endTime": 825,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 105600,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 38,
+        "name": "E",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2037266,
+    "date": 20250602,
+    "startTime": 830,
+    "endTime": 915,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 105600,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 38,
+        "name": "E",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2037269,
+    "date": 20250603,
+    "startTime": 1125,
+    "endTime": 1210,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 105600,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 38,
+        "name": "E",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2037272,
+    "date": 20250603,
+    "startTime": 1215,
+    "endTime": 1300,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 105600,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 38,
+        "name": "E",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 1891777,
+    "date": 20250605,
+    "startTime": 1125,
+    "endTime": 1210,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 105500,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 72,
+        "name": "LWK",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 1891780,
+    "date": 20250605,
+    "startTime": 1215,
+    "endTime": 1300,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 105500,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 72,
+        "name": "LWK",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2037509,
+    "date": 20250602,
+    "startTime": 935,
+    "endTime": 1020,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 105700,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 73,
+        "name": "M",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2037512,
+    "date": 20250602,
+    "startTime": 1025,
+    "endTime": 1110,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 105700,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 73,
+        "name": "M",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 1900298,
+    "date": 20250606,
+    "startTime": 935,
+    "endTime": 1020,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 105700,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 73,
+        "name": "M",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 112,
+        "name": "811",
+        "orgid": 105,
+        "orgname": "804"
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 1900301,
+    "date": 20250606,
+    "startTime": 1025,
+    "endTime": 1110,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 105700,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 73,
+        "name": "M",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 112,
+        "name": "811",
+        "orgid": 105,
+        "orgname": "804"
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 1908379,
+    "date": 20250603,
+    "startTime": 935,
+    "endTime": 1020,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 106100,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 84,
+        "name": "P-KOMP",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 1908382,
+    "date": 20250603,
+    "startTime": 1025,
+    "endTime": 1110,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 106100,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 84,
+        "name": "P-KOMP",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 105,
+        "name": "804",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 1919155,
+    "date": 20250606,
+    "startTime": 740,
+    "endTime": 825,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 105300,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 106,
+        "name": "S",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 176,
+        "name": "SP1",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 1919158,
+    "date": 20250606,
+    "startTime": 830,
+    "endTime": 915,
+    "lstype": "Lesson",
+    "code": "regular",
+    "lsnumber": 105300,
+    "lstext": "",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 106,
+        "name": "S",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 176,
+        "name": "SP1",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2034139,
+    "date": 20250604,
+    "startTime": 740,
+    "endTime": 825,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 369400,
+    "lstext": "Gr.A",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 200,
+        "name": "BPKM1",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 87,
+        "name": "751",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2023673,
+    "date": 20250604,
+    "startTime": 830,
+    "endTime": 915,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 369400,
+    "lstext": "Gr.A",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 200,
+        "name": "BPKM1",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 87,
+        "name": "751",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2023676,
+    "date": 20250604,
+    "startTime": 935,
+    "endTime": 1020,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 369400,
+    "lstext": "Gr.A",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 200,
+        "name": "BPKM1",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 87,
+        "name": "751",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2023679,
+    "date": 20250604,
+    "startTime": 1025,
+    "endTime": 1110,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 369400,
+    "lstext": "Gr.A",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 200,
+        "name": "BPKM1",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 87,
+        "name": "751",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2023682,
+    "date": 20250604,
+    "startTime": 1125,
+    "endTime": 1210,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 369400,
+    "lstext": "Gr.A",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 200,
+        "name": "BPKM1",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 87,
+        "name": "751",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2034199,
+    "date": 20250604,
+    "startTime": 740,
+    "endTime": 825,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 369500,
+    "lstext": "Gr.A",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 201,
+        "name": "BPKM2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 87,
+        "name": "751",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2032215,
+    "date": 20250604,
+    "startTime": 830,
+    "endTime": 915,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 369500,
+    "lstext": "Gr.A",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 201,
+        "name": "BPKM2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 87,
+        "name": "751",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2032218,
+    "date": 20250604,
+    "startTime": 935,
+    "endTime": 1020,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 369500,
+    "lstext": "Gr.A",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 201,
+        "name": "BPKM2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 87,
+        "name": "751",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2032221,
+    "date": 20250604,
+    "startTime": 1025,
+    "endTime": 1110,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 369500,
+    "lstext": "Gr.A",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 201,
+        "name": "BPKM2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 87,
+        "name": "751",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  },
+  {
+    "id": 2032224,
+    "date": 20250604,
+    "startTime": 1125,
+    "endTime": 1210,
+    "lstype": "Lesson",
+    "code": "cancelled",
+    "lsnumber": 369500,
+    "lstext": "Gr.A",
+    "substText": null,
+    "kl": [
+      {
+        "id": 2727,
+        "name": "VABR2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "su": [
+      {
+        "id": 201,
+        "name": "BPKM2",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "ro": [
+      {
+        "id": 87,
+        "name": "751",
+        "orgid": null,
+        "orgname": null
+      }
+    ],
+    "te": [],
+    "statflags": "",
+    "activityType": "Unterricht"
+  }
+]
