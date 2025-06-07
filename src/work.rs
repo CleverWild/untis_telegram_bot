@@ -3,14 +3,14 @@ use std::{convert::Infallible, time::Duration};
 use chrono::NaiveDate;
 use shuttle_runtime::tokio;
 use teloxide::{
+    Bot,
     payloads::SendMessageSetters,
     prelude::{ChatId, Request as _, Requester as _},
-    Bot,
 };
 use tracing::Instrument;
 
-use crate::{diff_impl::Diff, PROD};
-use crate::{message_formatter::core::apply_debug_info, utils::next_friday, DEBUG_TELEGRAM_CHAT};
+use crate::{DEBUG_TELEGRAM_CHAT, message_formatter::core::apply_debug_info, utils::next_friday};
+use crate::{PROD, diff_impl::Diff};
 use crate::{message_formatter::format_message, utils::sort_diffs};
 
 const TIMETABLE_FILE: &str = "timetable.json";
@@ -184,9 +184,14 @@ async fn work(
     };
 
     // Save timetable to file
-    if let Ok(json) = serde_json::to_string_pretty(&timetable) {
-        if let Err(e) = std::fs::write(TIMETABLE_FILE, json) {
-            tracing::warn!("Failed to save timetable to file: {e}");
+    match serde_json::to_string_pretty(&timetable) {
+        Ok(json) => {
+            if let Err(e) = std::fs::write(TIMETABLE_FILE, json) {
+                tracing::warn!("Failed to save timetable to file: {e}");
+            }
+        }
+        Err(e) => {
+            tracing::error!("Failed to serialize timetable: {e}");
         }
     }
 
