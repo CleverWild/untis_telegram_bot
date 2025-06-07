@@ -147,38 +147,18 @@ async fn work(
                 }
 
                 let formatted = format_message(&diff);
-                let debug_info = apply_debug_info(formatted.clone(), entry, &diff);
 
+                debug_message
+                    .push_str(&apply_debug_info(formatted.clone(), entry, &diff).to_string());
                 message.push_str(&formatted.to_string());
-                debug_message.push_str(&debug_info.to_string());
             }
 
             if PROD && !message.is_empty() {
-                let mut req = bot.send_message(*chat_id, message);
-
-                if let Some(thread_id) = thread_id {
-                    req = req.message_thread_id(teloxide::types::ThreadId(
-                        teloxide::types::MessageId(*thread_id),
-                    ));
-                }
-
-                if let Err(e) = req.send().await {
-                    tracing::error!("Failed to send telegram message: {e}");
-                }
+                send_message(bot, *chat_id, message, *thread_id).await;
             }
 
             if !debug_message.is_empty() {
-                let mut req = bot.send_message(DEBUG_TELEGRAM_CHAT, debug_message);
-
-                if let Some(thread_id) = thread_id {
-                    req = req.message_thread_id(teloxide::types::ThreadId(
-                        teloxide::types::MessageId(*thread_id),
-                    ));
-                }
-
-                if let Err(e) = req.send().await {
-                    tracing::error!("Failed to send telegram message: {e}");
-                }
+                send_message(bot, DEBUG_TELEGRAM_CHAT, debug_message, None).await;
             }
         }
     };
@@ -197,4 +177,18 @@ async fn work(
 
     *prev = Some(timetable);
     Ok(())
+}
+
+async fn send_message(bot: &Bot, chat_id: ChatId, message: String, thread_id: Option<i32>) {
+    let mut req = bot.send_message(chat_id, message);
+
+    if let Some(thread_id) = thread_id {
+        req = req.message_thread_id(teloxide::types::ThreadId(teloxide::types::MessageId(
+            thread_id,
+        )));
+    }
+
+    if let Err(e) = req.send().await {
+        tracing::error!("Failed to send telegram message: {e}");
+    }
 }

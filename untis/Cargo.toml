@@ -4,7 +4,6 @@ name = "untis"
 version = "0.3.2"
 
 [dependencies]
-# Зависимости теперь наследуются из workspace
 chrono = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
