@@ -1,17 +1,19 @@
-use shuttle_runtime::SecretStore;
+use shuttle_runtime::{tokio::task::JoinSet, SecretStore};
+use teloxide::{prelude::ChatId, Bot};
 use tracing::level_filters::LevelFilter;
 
-mod bot_service;
 mod diff_impl;
 mod message_formatter;
 mod utils;
 mod work;
 
-use bot_service::BotService;
-use work::WhitelistEntry;
+use crate::work::working_loop;
 
-const PROD: bool = false;
+const PROD: bool = true;
 // const PROD: bool = !cfg!(debug_assertions);
+
+/// My telegram DM
+const DEBUG_TELEGRAM_CHAT: ChatId = ChatId(690963502);
 
 type ShuttleUntis = Result<BotService, shuttle_runtime::Error>;
 
@@ -31,10 +33,10 @@ async fn main(#[shuttle_runtime::Secrets] secret_store: SecretStore) -> ShuttleU
     let (chat_id, thread_id) = if PROD {
         (teloxide::prelude::ChatId(2476978824), Some(2))
     } else {
-        (teloxide::prelude::ChatId(690963502), None) // My telegram DM
+        (DEBUG_TELEGRAM_CHAT, None)
     };
 
-    let whitelist = vec![WhitelistEntry {
+    let whitelist = vec![work::WhitelistEntry {
         chat_id,
         thread_id,
         untis_school: "Gewerbliche Schule Waiblingen".to_string(),
@@ -48,4 +50,41 @@ async fn main(#[shuttle_runtime::Secrets] secret_store: SecretStore) -> ShuttleU
     };
 
     Ok(bot_service)
+}
+
+pub struct BotService {
+    pub whitelist: Vec<work::WhitelistEntry>,
+    pub token: String,
+}
+
+impl BotService {
+    pub async fn launch(&self) {
+        let bot = Bot::new(&self.token);
+
+        let mut join_handles = JoinSet::new();
+
+        for entry in self.whitelist.iter().cloned() {
+            let bot = bot.clone();
+            join_handles.spawn(working_loop(bot, entry));
+        }
+
+        while let Some(result) = join_handles.join_next().await {
+            match result {
+                Ok(Ok(_)) => unreachable!(),
+                Ok(Err(e)) => tracing::error!("Worker encountered an error: {e}"),
+                Err(e) => tracing::error!("Worker panicked: {e}"),
+            }
+        }
+    }
+}
+
+#[shuttle_runtime::async_trait]
+impl shuttle_runtime::Service for BotService {
+    async fn bind(self, _addr: std::net::SocketAddr) -> Result<(), shuttle_runtime::Error> {
+        self.launch().await;
+
+        tracing::warn!("Bot finished");
+
+        Ok(())
+    }
 }

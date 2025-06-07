@@ -1,20 +1,19 @@
 use chrono::NaiveDate;
 
-pub enum DiffType {
-    Status,
-    Teacher,
-    Room,
-    Subject,
-    Time,
-    ActivityType,
-}
+// pub enum DiffType {
+//     Status,
+//     Teacher,
+//     Room,
+//     Subject,
+//     Time,
+//     ActivityType,
+// }
 
-pub struct Diffs(pub Vec<DiffType>);
+// pub struct Diffs(pub Vec<DiffType>);
 
 #[derive(Debug, Clone)]
 pub enum Diff<'a> {
-    AddedNormal(&'a untis::Lesson),
-    AddedIrregular(&'a untis::Lesson),
+    Added(&'a untis::Lesson),
     Changed {
         from: &'a untis::Lesson,
         to: &'a untis::Lesson,
@@ -36,10 +35,8 @@ impl Diff<'_> {
                         to: new_lesson,
                     });
                 }
-            } else if new_lesson.code != untis::LessonCode::Regular {
-                diff.push(Diff::AddedIrregular(new_lesson));
             } else {
-                diff.push(Diff::AddedNormal(new_lesson));
+                diff.push(Diff::Added(new_lesson));
             }
         }
 
@@ -48,16 +45,14 @@ impl Diff<'_> {
 
     pub fn date(&self) -> NaiveDate {
         match self {
-            Diff::AddedNormal(lesson) => lesson.date.0,
-            Diff::AddedIrregular(lesson) => lesson.date.0,
+            Diff::Added(lesson) => lesson.date.0,
             Diff::Changed { from, .. } => from.date.0,
         }
     }
 
     pub fn start_time(&self) -> untis::Time {
         match self {
-            Diff::AddedNormal(lesson) => lesson.start_time,
-            Diff::AddedIrregular(lesson) => lesson.start_time,
+            Diff::Added(lesson) => lesson.start_time,
             Diff::Changed { from, .. } => from.start_time,
         }
     }

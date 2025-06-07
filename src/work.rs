@@ -9,8 +9,8 @@ use teloxide::{
 };
 use tracing::Instrument;
 
-use crate::utils::next_friday;
 use crate::{diff_impl::Diff, PROD};
+use crate::{message_formatter::core::apply_debug_info, utils::next_friday, DEBUG_TELEGRAM_CHAT};
 use crate::{message_formatter::format_message, utils::sort_diffs};
 
 const TIMETABLE_FILE: &str = "timetable.json";
@@ -129,6 +129,7 @@ async fn work(
             tracing::info!("Diff was found: {:#?}", diffs);
 
             let mut message = String::new();
+            let mut debug_message = String::new();
             message.push_str("Changes in timetable:\n");
 
             let mut prev_date: Option<NaiveDate> = None;
@@ -145,11 +146,29 @@ async fn work(
                     message.push_str("----------------\n");
                 }
 
-                message.push_str(&format_message(&diff));
+                let formatted = format_message(&diff);
+                let debug_info = apply_debug_info(formatted.clone(), entry, &diff);
+
+                message.push_str(&formatted.to_string());
+                debug_message.push_str(&debug_info.to_string());
             }
 
-            if !message.is_empty() {
+            if PROD && !message.is_empty() {
                 let mut req = bot.send_message(*chat_id, message);
+
+                if let Some(thread_id) = thread_id {
+                    req = req.message_thread_id(teloxide::types::ThreadId(
+                        teloxide::types::MessageId(*thread_id),
+                    ));
+                }
+
+                if let Err(e) = req.send().await {
+                    tracing::error!("Failed to send telegram message: {e}");
+                }
+            }
+
+            if !debug_message.is_empty() {
+                let mut req = bot.send_message(DEBUG_TELEGRAM_CHAT, debug_message);
 
                 if let Some(thread_id) = thread_id {
                     req = req.message_thread_id(teloxide::types::ThreadId(
