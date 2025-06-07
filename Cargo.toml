@@ -1,6 +1,6 @@
 [package]
 name = "untis_telegram_bot"
-version = "0.1.0"
+version = "0.1.0" # permanent "0.1.0", because this is not a lib and can't be used anywhere.
 edition = "2024"
 
 [dependencies]
