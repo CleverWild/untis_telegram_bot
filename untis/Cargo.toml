@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name = "untis-api"
+name = "untis"
 version = "0.3.2"
 
 [dependencies]

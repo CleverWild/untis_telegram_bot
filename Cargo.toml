@@ -14,10 +14,10 @@ teloxide = { workspace = true }
 # thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-untis-api = {path = "untis-api"}
+untis = { path = "untis" }
 
 [workspace]
-members = ["untis-api"]
+members = ["untis"]
 
 [workspace.dependencies]
 chrono = "0.4.41"
