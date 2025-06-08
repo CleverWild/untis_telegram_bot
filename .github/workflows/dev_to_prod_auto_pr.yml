@@ -30,7 +30,7 @@ jobs:
       - name: Create PR if versions differ
         id: create_pr
         run: |
-          if [ "${{ steps.dev_version.outputs.version }}" != "${{ steps.prod_version.outputs.version }}" ]; then
+          if [[ "${{ steps.dev_version.outputs.version }}" > "${{ steps.prod_version.outputs.version }}" ]]; then
             git checkout -b auto-pr-from-dev-to-prod
             git commit --allow-empty -m "Auto PR from dev to prod"
             git push origin auto-pr-from-dev-to-prod
@@ -38,7 +38,7 @@ jobs:
               --base prod \
               --head auto-pr-from-dev-to-prod \
               --title "Auto PR from dev to prod" \
-              --body "This PR is automatically created to update the prod branch with changes from dev, because new version $DEV_VERSION is available."
+              --body "This PR is automatically created to update the prod branch with changes from dev, because new version ${{ steps.dev_version.outputs.version }} is available."
           else
             echo "No changes to be made. Versions are the same."
           fi
