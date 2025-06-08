@@ -1,25 +1,14 @@
 version: 2
 updates:
-  # This updates the `Cargo.lock` file.
-  #
-  # -----------------------------------------------------------------------------------------------
-  #
-  # Generally Rust libraries do not have lock files. This grows from the idea that you always want
-  # to run CI with the most recent (semver compatible) dependency versions, since those are the 
-  # versions new users will get.
-  #
-  # However this approach worsens the contribution experience, since PR's CI can fail because of
-  # a minor dependency update (e.g. because of an MSRV change or an accidental breaking change).
-  #
-  # To prevent this and make contribution experience a little bit better we include the lock file
-  # in the repository. To combat the problem of running CI against old versions, we have this
-  # dependabot job, which updates the `Cargo.lock` (and `Cargo.lock` only), every once in a while.
   - package-ecosystem: "cargo"
     # Directory where to search for build system configuration
     directory: "/" 
 
-    # Only change `Cargo.lock`, never change `Cargo.toml`
-    versioning-strategy: "lockfile-only"
+    # increase: Always increase the minimum version requirement to match the new version. If a range already exists, typically this only increases the lower bound.
+    # increase-if-necessary"	Leave the constraint if the original constraint allows the new version, otherwise, bump the constraint.
+    # lockfile-only"	Only create pull requests to update lockfiles. Ignore any new versions that would require package manifest changes.
+    # widen"	Widen the allowed version requirements to include both the new and old versions, when possible. Typically, this only increases the maximum allowed version requirement.
+    versioning-strategy: "auto"
     
     # Check for updates weekly.
     # This makes sure dependabot doesn't open PRs too often.
