@@ -114,7 +114,7 @@ impl Display for Message {
     }
 }
 
-pub fn apply_debug_info(mut message: Message, _entry: &WhitelistEntry, diff: &Diff) -> Message {
+pub fn apply_debug_info(message: &mut Message, _entry: &WhitelistEntry, diff: &Diff) {
     // Add debug information to the message
     let debug_info = match diff {
         Diff::Changed { from, to } => format!(
@@ -129,8 +129,6 @@ pub fn apply_debug_info(mut message: Message, _entry: &WhitelistEntry, diff: &Di
     };
 
     message.pushln(debug_info);
-
-    message
 }
 
 #[cfg(test)]
