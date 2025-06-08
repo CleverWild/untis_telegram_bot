@@ -28,6 +28,8 @@ updates:
     # Which labels to apply
     labels: ["A-dependencies"]
 
+    target-branch: "dev"
+
     # Stop dependabot from updating dependencies when the previous dependabot PR hasn't been
     # merged/closed yet
     open-pull-requests-limit: 1
