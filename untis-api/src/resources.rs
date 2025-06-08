@@ -1,5 +1,4 @@
 use crate::datetime::{Date, Time};
-use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -26,7 +25,7 @@ impl Display for ElementType {
             5 => "Student",
             _ => "Unknown",
         };
-        write!(f, "{}", name)
+        write!(f, "{name}")
     }
 }
 

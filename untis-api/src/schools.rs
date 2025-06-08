@@ -1,17 +1,14 @@
-// use tokio::sync::Mutex; // изменено на асинхронный Mutex
-use std::net::IpAddr;
-
 use crate::{jsonrpc, params::FindSchoolParams, Error, School, SchoolSearchResult};
 
-pub static mut LOCAL_ADDRESS: Option<IpAddr> = None;
+// pub static mut LOCAL_ADDRESS: Option<IpAddr> = None;
 
 pub fn get_client() -> jsonrpc::Client {
     const URL: &str = "https://mobile.webuntis.com/ms/schoolquery2";
-    if let Some(addr) = unsafe { LOCAL_ADDRESS.as_ref() } {
-        jsonrpc::Client::new_with_bind_address(URL, *addr)
-    } else {
-        jsonrpc::Client::new(URL)
-    }
+    // if let Some(addr) = unsafe { LOCAL_ADDRESS.as_ref() } {
+    //     jsonrpc::Client::new_with_bind_address(URL, *addr)
+    // } else {
+    jsonrpc::Client::new(URL)
+    // }
 }
 
 /// Returns all schools matching the query or an empty vec if there are too many results.

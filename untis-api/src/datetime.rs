@@ -77,7 +77,7 @@ fn chrono_to_untis_date(date: NaiveDate) -> u32 {
 }
 
 fn chrono_from_untis_date(value: u32) -> NaiveDate {
-    let string = format!("{}", value);
+    let string = format!("{value}");
     let year = string[0..4].parse::<i32>().unwrap();
     let month = string[4..6].parse::<u32>().unwrap();
     let day = string[6..8].parse::<u32>().unwrap();
@@ -188,9 +188,9 @@ mod tests {
     fn convert_untis_time_forth_and_back() {
         let number = 830;
         let time = chrono_from_untis_time(number);
-        println!("Time: {}", time);
+        println!("Time: {time}");
         let new_number = chrono_to_untis_time(time);
-        println!("Num:  {}", new_number);
+        println!("Num:  {new_number}");
 
         assert_eq!(number, new_number);
     }

@@ -2,12 +2,10 @@
 
 use std::fmt::Display;
 
-use chrono::NaiveDate;
-
 use super::formatters::{LessonChangeFormatter, NewLessonFormatter};
 use crate::{
     diff_impl::Diff,
-    message_formatter::fields::{Field, FieldDiff, DEFAULT_BUFFER_CAPACITY, FIELD_SEPARATOR},
+    message_formatter::fields::{DEFAULT_BUFFER_CAPACITY, FIELD_SEPARATOR, Field, FieldDiff},
     work::WhitelistEntry,
 };
 
@@ -116,7 +114,7 @@ impl Display for Message {
     }
 }
 
-pub fn apply_debug_info(mut message: Message, entry: &WhitelistEntry, diff: &Diff) -> Message {
+pub fn apply_debug_info(mut message: Message, _entry: &WhitelistEntry, diff: &Diff) -> Message {
     // Add debug information to the message
     let debug_info = match diff {
         Diff::Changed { from, to } => format!(

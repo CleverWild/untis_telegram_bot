@@ -3,14 +3,14 @@ use std::{convert::Infallible, time::Duration};
 use chrono::NaiveDate;
 use shuttle_runtime::tokio;
 use teloxide::{
+    Bot,
     payloads::SendMessageSetters,
     prelude::{ChatId, Request as _, Requester as _},
-    Bot,
 };
 use tracing::Instrument;
 
-use crate::{diff_impl::Diff, PROD};
-use crate::{message_formatter::core::apply_debug_info, utils::next_friday, DEBUG_TELEGRAM_CHAT};
+use crate::{DEBUG_TELEGRAM_CHAT, message_formatter::core::apply_debug_info, utils::next_friday};
+use crate::{PROD, diff_impl::Diff};
 use crate::{message_formatter::format_message, utils::sort_diffs};
 
 const TIMETABLE_FILE: &str = "timetable.json";
@@ -147,49 +147,48 @@ async fn work(
                 }
 
                 let formatted = format_message(&diff);
-                let debug_info = apply_debug_info(formatted.clone(), entry, &diff);
 
+                debug_message
+                    .push_str(&apply_debug_info(formatted.clone(), entry, &diff).to_string());
                 message.push_str(&formatted.to_string());
-                debug_message.push_str(&debug_info.to_string());
             }
 
             if PROD && !message.is_empty() {
-                let mut req = bot.send_message(*chat_id, message);
-
-                if let Some(thread_id) = thread_id {
-                    req = req.message_thread_id(teloxide::types::ThreadId(
-                        teloxide::types::MessageId(*thread_id),
-                    ));
-                }
-
-                if let Err(e) = req.send().await {
-                    tracing::error!("Failed to send telegram message: {e}");
-                }
+                send_message(bot, *chat_id, message, *thread_id).await;
             }
 
             if !debug_message.is_empty() {
-                let mut req = bot.send_message(DEBUG_TELEGRAM_CHAT, debug_message);
-
-                if let Some(thread_id) = thread_id {
-                    req = req.message_thread_id(teloxide::types::ThreadId(
-                        teloxide::types::MessageId(*thread_id),
-                    ));
-                }
-
-                if let Err(e) = req.send().await {
-                    tracing::error!("Failed to send telegram message: {e}");
-                }
+                send_message(bot, DEBUG_TELEGRAM_CHAT, debug_message, None).await;
             }
         }
     };
 
     // Save timetable to file
-    if let Ok(json) = serde_json::to_string_pretty(&timetable) {
-        if let Err(e) = std::fs::write(TIMETABLE_FILE, json) {
-            tracing::warn!("Failed to save timetable to file: {e}");
+    match serde_json::to_string_pretty(&timetable) {
+        Ok(json) => {
+            if let Err(e) = std::fs::write(TIMETABLE_FILE, json) {
+                tracing::warn!("Failed to save timetable to file: {e}");
+            }
+        }
+        Err(e) => {
+            tracing::error!("Failed to serialize timetable: {e}");
         }
     }
 
     *prev = Some(timetable);
     Ok(())
+}
+
+async fn send_message(bot: &Bot, chat_id: ChatId, message: String, thread_id: Option<i32>) {
+    let mut req = bot.send_message(chat_id, message);
+
+    if let Some(thread_id) = thread_id {
+        req = req.message_thread_id(teloxide::types::ThreadId(teloxide::types::MessageId(
+            thread_id,
+        )));
+    }
+
+    if let Err(e) = req.send().await {
+        tracing::error!("Failed to send telegram message: {e}");
+    }
 }
