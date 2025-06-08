@@ -128,33 +128,38 @@ async fn work(
 
             tracing::info!("Diff was found: {:#?}", diffs);
 
-            let mut message = String::new();
-            let mut debug_message = String::new();
-            message.push_str("Changes in timetable:\n");
+            let mut prod_message = "Changes in timetable:\n".to_string();
+            // Extended variation of prod_message but with debug information
+            let mut debug_message = prod_message.clone();
 
             let mut prev_date: Option<NaiveDate> = None;
             for (i, diff) in diffs.into_iter().enumerate() {
                 let date = diff.date();
+                let mut separator = String::new();
                 if prev_date != Some(date) {
-                    message.push_str(&format!(
+                    separator.push_str(&format!(
                         "\nDate: {date} {week_day}\n",
                         week_day = date.format("%A")
                     ));
 
                     prev_date = Some(date);
                 } else if i != 0 {
-                    message.push_str("----------------\n");
+                    separator.push_str("----------------\n");
                 }
 
-                let formatted = format_message(&diff);
+                prod_message.push_str(&separator);
+                debug_message.push_str(&separator);
 
-                debug_message
-                    .push_str(&apply_debug_info(formatted.clone(), entry, &diff).to_string());
-                message.push_str(&formatted.to_string());
+                let formatted = format_message(&diff);
+                prod_message.push_str(&formatted.to_string());
+
+                let mut debug_formatted = formatted;
+                apply_debug_info(&mut debug_formatted, entry, &diff);
+                debug_message.push_str(&debug_formatted.to_string());
             }
 
-            if PROD && !message.is_empty() {
-                send_message(bot, *chat_id, message, *thread_id).await;
+            if PROD && !prod_message.is_empty() {
+                send_message(bot, *chat_id, prod_message, *thread_id).await;
             }
 
             if !debug_message.is_empty() {
@@ -188,7 +193,15 @@ async fn send_message(bot: &Bot, chat_id: ChatId, message: String, thread_id: Op
         )));
     }
 
-    if let Err(e) = req.send().await {
+    if let Err(e) = req.clone().send().await {
+        // todo! after integration DB edit the thread id after creating a new topic
+        // if let teloxide::RequestError::Api(teloxide::ApiError::Unknown(ref str)) = e
+        //     && str.contains("message thread not found")
+        // {
+        //     let name = format!("{} Notification", entry.display_name);
+        //     bot.create_forum_topic(chat_id, name, icon_color, icon_custom_emoji_id)
+        // } else {
         tracing::error!("Failed to send telegram message: {e}");
+        // }
     }
 }
