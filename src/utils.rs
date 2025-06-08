@@ -8,9 +8,12 @@ pub fn next_friday(from: NaiveDate) -> NaiveDate {
 }
 
 pub fn sort_diffs(diffs: &mut Vec<Diff>) {
-    diffs.sort_by(|l, r| match l.date().cmp(&r.date()) {
-        std::cmp::Ordering::Equal => l.start_time().cmp(&r.start_time()),
-        ord => ord,
+    diffs.sort_by(|l, r| {
+        l.date()
+            .cmp(&r.date())
+            .then_with(|| l.start_time().cmp(&r.start_time()))
+            .then_with(|| l.end_time().cmp(&r.end_time()))
+            .then_with(|| l.code().cmp(r.code()))
     })
 }
 

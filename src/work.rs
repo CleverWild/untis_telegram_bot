@@ -9,7 +9,9 @@ use teloxide::{
 };
 use tracing::Instrument;
 
-use crate::{DEBUG_TELEGRAM_CHAT, message_formatter::core::apply_debug_info, utils::next_friday};
+use crate::{
+    DEBUG_TELEGRAM_CHAT, message, message_formatter::core::apply_debug_info, utils::next_friday,
+};
 use crate::{PROD, diff_impl::Diff};
 use crate::{message_formatter::format_message, utils::sort_diffs};
 
@@ -128,40 +130,39 @@ async fn work(
 
             tracing::info!("Diff was found: {:#?}", diffs);
 
-            let mut message = String::new();
-            let mut debug_message = String::new();
-            message.push_str("Changes in timetable:\n");
-
+            let mut message = message::LabeledStrings::new();
             let mut prev_date: Option<NaiveDate> = None;
+
             for (i, diff) in diffs.into_iter().enumerate() {
                 let date = diff.date();
-                if prev_date != Some(date) {
-                    message.push_str(&format!(
-                        "\nDate: {date} {week_day}\n",
-                        week_day = date.format("%A")
-                    ));
 
+                if let Some(separator) = if prev_date != Some(date) {
                     prev_date = Some(date);
+                    Some(format!("\nDate: {date} {}\n", date.format("%A")))
                 } else if i != 0 {
-                    message.push_str("----------------\n");
+                    Some("----------------\n".to_string())
+                } else {
+                    None
+                } {
+                    message.push_normal(separator);
                 }
 
                 let formatted = format_message(&diff);
+                message.push_normal(formatted.to_string());
 
-                debug_message
-                    .push_str(&apply_debug_info(formatted.clone(), entry, &diff).to_string());
-                message.push_str(&formatted.to_string());
+                let mut debug = formatted;
+                apply_debug_info(&mut debug, entry, &diff);
+                message.push_debug(debug.to_string());
             }
 
-            if PROD && !message.is_empty() {
-                send_message(bot, *chat_id, message, *thread_id).await;
+            if PROD {
+                // Send message to production target
+                send_message(bot, *chat_id, message.display_normal(), *thread_id).await;
             }
-
-            if !debug_message.is_empty() {
-                send_message(bot, DEBUG_TELEGRAM_CHAT, debug_message, None).await;
-            }
+            // Send message to debug target
+            send_message(bot, DEBUG_TELEGRAM_CHAT, message.display_all(), None).await;
         }
-    };
+    }
 
     // Save timetable to file
     match serde_json::to_string_pretty(&timetable) {
@@ -188,7 +189,15 @@ async fn send_message(bot: &Bot, chat_id: ChatId, message: String, thread_id: Op
         )));
     }
 
-    if let Err(e) = req.send().await {
+    if let Err(e) = req.clone().send().await {
+        // todo! after integration DB edit the thread id after creating a new topic
+        // if let teloxide::RequestError::Api(teloxide::ApiError::Unknown(ref str)) = e
+        //     && str.contains("message thread not found")
+        // {
+        //     let name = format!("{} Notification", entry.display_name);
+        //     bot.create_forum_topic(chat_id, name, icon_color, icon_custom_emoji_id)
+        // } else {
         tracing::error!("Failed to send telegram message: {e}");
+        // }
     }
 }

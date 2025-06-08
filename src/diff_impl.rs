@@ -1,4 +1,5 @@
 use chrono::NaiveDate;
+use untis::LessonCode;
 
 // pub enum DiffType {
 //     Status,
@@ -54,6 +55,20 @@ impl Diff<'_> {
         match self {
             Diff::Added(lesson) => lesson.start_time,
             Diff::Changed { from, .. } => from.start_time,
+        }
+    }
+
+    pub fn end_time(&self) -> untis::Time {
+        match self {
+            Diff::Added(lesson) => lesson.end_time,
+            Diff::Changed { from, .. } => from.end_time,
+        }
+    }
+
+    pub fn code(&self) -> &LessonCode {
+        match self {
+            Diff::Added(lesson) => &lesson.code,
+            Diff::Changed { from, .. } => &from.code,
         }
     }
 }
