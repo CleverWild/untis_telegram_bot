@@ -12,6 +12,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Fetch prod branch
         run: git fetch origin prod
 
@@ -28,7 +33,8 @@ jobs:
           echo "version=$PROD_VERSION" >> $GITHUB_OUTPUT
           
       - name: Create PR if versions differ
-        id: create_pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [[ "${{ steps.dev_version.outputs.version }}" > "${{ steps.prod_version.outputs.version }}" ]]; then
             git checkout -b auto-pr-from-dev-to-prod
