@@ -2633,7 +2633,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
-name = "untis"
+name = "untis-api"
 version = "0.3.2"
 dependencies = [
  "chrono",
@@ -2646,7 +2646,7 @@ dependencies = [
 
 [[package]]
 name = "untis_telegram_bot"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "eyre",
@@ -2655,7 +2655,7 @@ dependencies = [
  "teloxide",
  "tracing",
  "tracing-subscriber",
- "untis",
+ "untis-api",
 ]
 
 [[package]]
