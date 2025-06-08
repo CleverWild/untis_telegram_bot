@@ -13,7 +13,7 @@ updates:
     # Check for updates weekly.
     # This makes sure dependabot doesn't open PRs too often.
     schedule:
-      interval: "weekly"
+      interval: "daily"
     
     # Group dependencies, so dependabot does not open a million pull requests and instead just
     # makes "bump everything" every once in a while
