@@ -57,7 +57,7 @@ pub async fn working_loop(bot: Bot, whitelist: WhitelistEntry) -> Result<Infalli
     let mut prev: Option<Vec<untis::Lesson>> = None;
 
     if !PROD {
-        prev = std::fs::read_to_string(TIMETABLE_FILE)
+        prev = tokio::fs::read_to_string(TIMETABLE_FILE).await
             .ok()
             .and_then(|content| serde_json::from_str(&content).ok())
             .or_else(|| {
