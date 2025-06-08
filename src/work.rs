@@ -22,6 +22,7 @@ pub struct WhitelistEntry {
     pub untis_school: String,
     pub untis_login: String,
     pub untis_password: String,
+    pub display_name: String,
 }
 
 #[tracing::instrument(skip_all, fields(%class = whitelist.untis_login))]
