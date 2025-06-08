@@ -3,14 +3,15 @@ use teloxide::{prelude::ChatId, Bot};
 use tracing::level_filters::LevelFilter;
 
 mod diff_impl;
+mod message;
 mod message_formatter;
 mod utils;
 mod work;
 
 use crate::work::working_loop;
 
-const PROD: bool = true;
-// const PROD: bool = !cfg!(debug_assertions);
+// const PROD: bool = true;
+const PROD: bool = !cfg!(debug_assertions);
 
 /// My telegram DM
 const DEBUG_TELEGRAM_CHAT: ChatId = ChatId(690963502);

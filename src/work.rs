@@ -9,7 +9,9 @@ use teloxide::{
 };
 use tracing::Instrument;
 
-use crate::{DEBUG_TELEGRAM_CHAT, message_formatter::core::apply_debug_info, utils::next_friday};
+use crate::{
+    DEBUG_TELEGRAM_CHAT, message, message_formatter::core::apply_debug_info, utils::next_friday,
+};
 use crate::{PROD, diff_impl::Diff};
 use crate::{message_formatter::format_message, utils::sort_diffs};
 
@@ -128,45 +130,39 @@ async fn work(
 
             tracing::info!("Diff was found: {:#?}", diffs);
 
-            let mut prod_message = "Changes in timetable:\n".to_string();
-            // Extended variation of prod_message but with debug information
-            let mut debug_message = prod_message.clone();
-
+            let mut message = message::LabeledStrings::new();
             let mut prev_date: Option<NaiveDate> = None;
+
             for (i, diff) in diffs.into_iter().enumerate() {
                 let date = diff.date();
-                let mut separator = String::new();
-                if prev_date != Some(date) {
-                    separator.push_str(&format!(
-                        "\nDate: {date} {week_day}\n",
-                        week_day = date.format("%A")
-                    ));
 
+                if let Some(separator) = if prev_date != Some(date) {
                     prev_date = Some(date);
+                    Some(format!("\nDate: {date} {}\n", date.format("%A")))
                 } else if i != 0 {
-                    separator.push_str("----------------\n");
+                    Some("----------------\n".to_string())
+                } else {
+                    None
+                } {
+                    message.push_normal(separator);
                 }
 
-                prod_message.push_str(&separator);
-                debug_message.push_str(&separator);
-
                 let formatted = format_message(&diff);
-                prod_message.push_str(&formatted.to_string());
+                message.push_normal(formatted.to_string());
 
-                let mut debug_formatted = formatted;
-                apply_debug_info(&mut debug_formatted, entry, &diff);
-                debug_message.push_str(&debug_formatted.to_string());
+                let mut debug = formatted;
+                apply_debug_info(&mut debug, entry, &diff);
+                message.push_debug(debug.to_string());
             }
 
-            if PROD && !prod_message.is_empty() {
-                send_message(bot, *chat_id, prod_message, *thread_id).await;
+            if PROD {
+                // Send message to production target
+                send_message(bot, *chat_id, message.display_normal(), *thread_id).await;
             }
-
-            if !debug_message.is_empty() {
-                send_message(bot, DEBUG_TELEGRAM_CHAT, debug_message, None).await;
-            }
+            // Send message to debug target
+            send_message(bot, DEBUG_TELEGRAM_CHAT, message.display_all(), None).await;
         }
-    };
+    }
 
     // Save timetable to file
     match serde_json::to_string_pretty(&timetable) {
