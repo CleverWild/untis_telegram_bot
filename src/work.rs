@@ -54,13 +54,17 @@ pub async fn working_loop(bot: Bot, whitelist: WhitelistEntry) -> Result<Infalli
         .await
         .unwrap();
 
-    let mut prev: Option<Vec<untis::Lesson>> = std::fs::read_to_string(TIMETABLE_FILE)
-        .ok()
-        .and_then(|content| serde_json::from_str(&content).ok())
-        .or_else(|| {
-            tracing::warn!("Failed to load previous timetable from file");
-            None
-        });
+    let mut prev: Option<Vec<untis::Lesson>> = None;
+
+    if !PROD {
+        prev = tokio::fs::read_to_string(TIMETABLE_FILE).await
+            .ok()
+            .and_then(|content| serde_json::from_str(&content).ok())
+            .or_else(|| {
+                tracing::warn!("Failed to load previous timetable from file");
+                None
+            });
+    }
 
     const DURATION: Duration = Duration::from_secs(60);
     let mut interval = tokio::time::interval(DURATION);
@@ -164,15 +168,17 @@ async fn work(
         }
     }
 
-    // Save timetable to file
-    match serde_json::to_string_pretty(&timetable) {
-        Ok(json) => {
-            if let Err(e) = std::fs::write(TIMETABLE_FILE, json) {
-                tracing::warn!("Failed to save timetable to file: {e}");
+    if !PROD {
+        // Save timetable to file
+        match serde_json::to_string_pretty(&timetable) {
+            Ok(json) => {
+                if let Err(e) = std::fs::write(TIMETABLE_FILE, json) {
+                    tracing::warn!("Failed to save timetable to file: {e}");
+                }
             }
-        }
-        Err(e) => {
-            tracing::error!("Failed to serialize timetable: {e}");
+            Err(e) => {
+                tracing::error!("Failed to serialize timetable: {e}");
+            }
         }
     }
 
