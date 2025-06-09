@@ -11,15 +11,6 @@ This project is a Telegram bot that:
 - Automatically notifies users of any changes via Telegram
 - Supports working with multiple schools and users
 
-## Key Features
-
-- 🔄 **Automatic monitoring** - periodic checking for schedule changes
-- 📱 **Telegram notifications** - instant notifications about changes
-- 🏫 **Multi-school support** - ability to connect to various educational institutions
-- 🛡️ **Authentication system** - secure handling of WebUntis credentials
-- 📊 **Detailed information** - comprehensive details about schedule changes
-- 🌐 **Cloud deployment** - ready for cloud infrastructure deployment
-
 ## Technology Stack
 
 - **Rust** - primary programming language
@@ -27,20 +18,6 @@ This project is a Telegram bot that:
 - **Shuttle** - deployment platform
 - **WebUntis API** - integration with the schedule system
 - **Tokio** - asynchronous runtime
-
-## Project Structure
-
-```
-├── src/                    # Main application code
-│   ├── main.rs            # Entry point and configuration
-│   ├── work.rs            # Schedule monitoring logic
-│   ├── diff_impl.rs       # Change detection
-│   ├── message.rs         # Message handling
-│   ├── utils.rs           # Utility functions
-│   └── message_formatter/ # Notification formatting
-└── untis/                 # WebUntis library
-    └── src/               # API client and data types
-```
 
 ## License
 
