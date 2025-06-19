@@ -36,7 +36,7 @@ jobs:
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: auto-pr-from-dev-to-prod
+          branch: dev
           base: prod
           title: "Auto PR from dev to prod"
           body: |
