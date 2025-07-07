@@ -110,7 +110,7 @@ impl Display for Message {
             }
         }
 
-        write!(f, "{buffer}")
+        writeln!(f, "{buffer}")
     }
 }
 
