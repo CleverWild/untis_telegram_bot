@@ -1,5 +1,5 @@
-use shuttle_runtime::{tokio::task::JoinSet, SecretStore};
-use teloxide::{prelude::ChatId, Bot};
+use shuttle_runtime::{SecretStore, tokio::task::JoinSet};
+use teloxide::{Bot, prelude::ChatId};
 use tracing::level_filters::LevelFilter;
 
 mod diff_impl;
@@ -10,8 +10,8 @@ mod work;
 
 use crate::work::working_loop;
 
-// const PROD: bool = true;
-const PROD: bool = !cfg!(debug_assertions);
+const IS_DEBUG: bool = cfg!(debug_assertions);
+const IS_PROD: bool = !IS_DEBUG;
 
 /// My telegram DM
 const DEBUG_TELEGRAM_CHAT: ChatId = ChatId(690963502);
@@ -31,18 +31,19 @@ async fn main(#[shuttle_runtime::Secrets] secret_store: SecretStore) -> ShuttleU
         .compact()
         .init();
 
-    let (chat_id, thread_id) = if PROD {
-        (teloxide::prelude::ChatId(2476978824), Some(2))
+    let (chat_id, thread_id) = if IS_PROD {
+        (teloxide::prelude::ChatId(2951933538), Some(2))
     } else {
+        tracing::warn!("Running in debug mode");
         (DEBUG_TELEGRAM_CHAT, None)
     };
 
     let whitelist = vec![work::WhitelistEntry {
         chat_id,
         thread_id,
-        untis_school: "Gewerbliche Schule Waiblingen".to_string(),
-        untis_login: "VABR2".to_string(),
-        untis_password: "gswnVABR2DL".to_string(),
+        untis_school: "KS-Waiblingen".to_string(),
+        untis_login: "BrovkoOle".to_string(),
+        untis_password: "N6C4csN&^*a7vW".to_string(),
     }];
 
     let bot_service = BotService {

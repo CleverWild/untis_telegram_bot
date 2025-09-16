@@ -10,12 +10,12 @@ use teloxide::{
 use tracing::Instrument;
 
 use crate::{
-    DEBUG_TELEGRAM_CHAT, message, message_formatter::core::apply_debug_info, utils::next_friday,
+    message, message_formatter::core::apply_debug_info, utils::next_friday, DEBUG_TELEGRAM_CHAT, IS_DEBUG
 };
-use crate::{PROD, diff_impl::Diff};
+use crate::{IS_PROD, diff_impl::Diff};
 use crate::{message_formatter::format_message, utils::sort_diffs};
 
-const TIMETABLE_FILE: &str = "timetable.json";
+const TIMETABLE_DUMP_FILE: &str = "timetable_dump.json";
 
 #[derive(Debug, Clone)]
 pub struct WhitelistEntry {
@@ -56,15 +56,15 @@ pub async fn working_loop(bot: Bot, whitelist: WhitelistEntry) -> Result<Infalli
 
     let mut prev: Option<Vec<untis::Lesson>> = None;
 
-    if !PROD {
-        prev = tokio::fs::read_to_string(TIMETABLE_FILE).await
-            .ok()
-            .and_then(|content| serde_json::from_str(&content).ok())
-            .or_else(|| {
-                tracing::warn!("Failed to load previous timetable from file");
-                None
-            });
-    }
+    // if !PROD {
+    //     prev = tokio::fs::read_to_string(TIMETABLE_FILE).await
+    //         .ok()
+    //         .and_then(|content| serde_json::from_str(&content).ok())
+    //         .or_else(|| {
+    //             tracing::warn!("Failed to load previous timetable from file");
+    //             None
+    //         });
+    // }
 
     const DURATION: Duration = Duration::from_secs(60);
     let mut interval = tokio::time::interval(DURATION);
@@ -74,7 +74,7 @@ pub async fn working_loop(bot: Bot, whitelist: WhitelistEntry) -> Result<Infalli
     for i in 0u32.. {
         let span = tracing::info_span!("iteration", i);
 
-        if !PROD && i % 10 == 0 {
+        if IS_DEBUG && i % 10 == 0 {
             bot.send_message(*chat_id, format!("{untis_login} is alive"))
                 .send()
                 .await?;
@@ -87,7 +87,7 @@ pub async fn working_loop(bot: Bot, whitelist: WhitelistEntry) -> Result<Infalli
             .await?;
 
         let json = serde_json::to_string_pretty(&prev).expect("Failed to serialize timetable");
-        if let Err(e) = std::fs::write(TIMETABLE_FILE, json) {
+        if let Err(e) = std::fs::write(TIMETABLE_DUMP_FILE, json) {
             tracing::error!(parent: &span, "Failed to save timetable to file: {e}");
         }
 
@@ -159,26 +159,12 @@ async fn work(
                 message.push_debug(debug.to_string());
             }
 
-            if PROD {
+            if IS_PROD {
                 // Send message to production target
                 send_message(bot, *chat_id, message.display_normal(), *thread_id).await;
             }
             // Send message to debug target
             send_message(bot, DEBUG_TELEGRAM_CHAT, message.display_all(), None).await;
-        }
-    }
-
-    if !PROD {
-        // Save timetable to file
-        match serde_json::to_string_pretty(&timetable) {
-            Ok(json) => {
-                if let Err(e) = std::fs::write(TIMETABLE_FILE, json) {
-                    tracing::warn!("Failed to save timetable to file: {e}");
-                }
-            }
-            Err(e) => {
-                tracing::error!("Failed to serialize timetable: {e}");
-            }
         }
     }
 
