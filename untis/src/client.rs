@@ -20,7 +20,7 @@ pub struct Client {
 }
 
 impl Client {
-    /// Асинхронный метод для создания новой сессии.
+    /// Asynchronous method for creating a new session.
     pub async fn login(
         server: &str,
         school: &str,
@@ -45,33 +45,33 @@ impl Client {
         &self.session
     }
 
-    /// Возвращает последний раз, когда любое расписание в этой школе было обновлено.
+    /// Returns the last time any timetable in this school was updated.
     pub async fn last_update_time(&mut self) -> Result<chrono::DateTime<chrono::Utc>, Error> {
         let ts: i64 = self.rpc_client.request("getLatestImportTime", ()).await?;
         Ok(chrono::Utc.timestamp_millis_opt(ts).unwrap())
     }
 
-    /// Возвращает статусные данные для отображения расписания.
+    /// Returns status data for timetable display.
     pub async fn status_data(&mut self) -> Result<StatusData, Error> {
         self.rpc_client.request("getStatusData", ()).await
     }
 
-    /// Получает текущий учебный год.
+    /// Gets the current school year.
     pub async fn current_schoolyear(&mut self) -> Result<Schoolyear, Error> {
         self.rpc_client.request("getCurrentSchoolyear", ()).await
     }
 
-    /// Получает список всех учебных годов.
+    /// Gets the list of all school years.
     pub async fn schoolyears(&mut self) -> Result<Vec<Schoolyear>, Error> {
         self.rpc_client.request("getSchoolyears", ()).await
     }
 
-    /// Получает каникулы в текущем учебном году.
+    /// Gets holidays in the current school year.
     pub async fn holidays(&mut self) -> Result<Vec<Holiday>, Error> {
         self.rpc_client.request("getHolidays", ()).await
     }
 
-    /// Получает список комнат в школе пользователя.
+    /// Gets the list of rooms in the user's school.
     pub async fn rooms(&mut self) -> Result<Vec<Room>, Error> {
         self.rpc_client.request("getRooms", ()).await
     }

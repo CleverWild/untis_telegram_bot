@@ -18,7 +18,7 @@ pub async fn search(query: &str) -> Result<Vec<School>, Error> {
             "searchSchool",
             vec![FindSchoolParams::Search { search: query }],
         )
-        .await; // добавлено await
+        .await; // added await
     catch_too_many(result)
 }
 
@@ -29,7 +29,7 @@ pub async fn get_by_id(id: &usize) -> Result<School, Error> {
             "searchSchool",
             vec![FindSchoolParams::ById { schoolid: id }],
         )
-        .await; // добавлено await
+        .await; // added await
 
     get_first(catch_too_many(result)?)
 }
