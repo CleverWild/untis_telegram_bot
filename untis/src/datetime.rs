@@ -131,8 +131,7 @@ impl std::fmt::Display for Time {
 
 fn chrono_to_untis_time(time: NaiveTime) -> u16 {
     let string = format!("{}", time.format("%k%M"));
-    let number = string.trim().parse::<u16>().unwrap();
-    number
+    string.trim().parse::<u16>().unwrap()
 }
 
 fn chrono_from_untis_time(value: u16) -> NaiveTime {

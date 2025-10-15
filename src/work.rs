@@ -1,40 +1,56 @@
 use std::{convert::Infallible, time::Duration};
 
 use chrono::NaiveDate;
-use shuttle_runtime::tokio;
 use teloxide::{
     Bot,
-    payloads::SendMessageSetters,
+    payloads::EditMessageTextSetters as _,
     prelude::{ChatId, Request as _, Requester as _},
+    types::MessageId,
 };
+use tokio::time::Instant;
 use tracing::Instrument;
 
 use crate::{
-    DEBUG_TELEGRAM_CHAT, message, message_formatter::core::apply_debug_info, utils::next_friday,
+    DEBUG_TELEGRAM_CHAT, message,
+    message_formatter::core::apply_debug_info,
+    utils::{next_friday, send_message},
 };
-use crate::{PROD, diff_impl::Diff};
+use crate::{IS_PROD, diff_impl::Diff};
 use crate::{message_formatter::format_message, utils::sort_diffs};
 
 const TIMETABLE_FILE: &str = "timetable.json";
 
+#[derive(Debug, Clone, Copy)]
+pub struct Chat {
+    pub id: ChatId,
+    pub thread_id: Option<i32>,
+}
+
 #[derive(Debug, Clone)]
 pub struct WhitelistEntry {
-    pub chat_id: ChatId,
-    pub thread_id: Option<i32>,
+    pub notification_chat: Chat,
+    pub status_chat: Chat,
+    pub status_msg: Option<MessageId>,
     pub untis_school: String,
     pub untis_login: String,
     pub untis_password: String,
+    pub target_class_name: Option<String>,
+    pub task_name: String,
 }
 
-#[tracing::instrument(skip_all, fields(%class = whitelist.untis_login))]
+#[tracing::instrument(skip_all, fields(%task = whitelist.task_name))]
 pub async fn working_loop(bot: Bot, whitelist: WhitelistEntry) -> Result<Infallible, eyre::Report> {
     let WhitelistEntry {
         untis_school,
         untis_login,
         untis_password,
-        chat_id,
+        notification_chat,
+        task_name,
+        status_msg,
         ..
     } = &whitelist;
+
+    let uptime_since = Instant::now();
 
     let span = tracing::info_span!("preparation");
 
@@ -55,32 +71,25 @@ pub async fn working_loop(bot: Bot, whitelist: WhitelistEntry) -> Result<Infalli
         .unwrap();
 
     let mut prev: Option<Vec<untis::Lesson>> = None;
-
-    if !PROD {
-        prev = tokio::fs::read_to_string(TIMETABLE_FILE).await
-            .ok()
-            .and_then(|content| serde_json::from_str(&content).ok())
-            .or_else(|| {
-                tracing::warn!("Failed to load previous timetable from file");
-                None
-            });
-    }
+    let mut status_msg: Option<MessageId> = *status_msg;
 
     const DURATION: Duration = Duration::from_secs(60);
-    let mut interval = tokio::time::interval(DURATION);
-    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Burst);
-    interval.tick().await;
+
+    let mut interval = tokio::time::interval_at(crate::utils::align_next_minute(), DURATION);
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
     for i in 0u32.. {
         let span = tracing::info_span!("iteration", i);
 
-        if !PROD && i % 10 == 0 {
-            bot.send_message(*chat_id, format!("{untis_login} is alive"))
+        if !IS_PROD && i % 10 == 0 {
+            bot.send_message(notification_chat.id, format!("{task_name} is alive"))
                 .send()
                 .await?;
         }
 
         let start = tokio::time::Instant::now();
+
+        update_status(&bot, &mut client, &whitelist, &mut status_msg, uptime_since).await?;
 
         work(&bot, &mut client, &whitelist, &mut prev)
             .instrument(span.clone())
@@ -115,16 +124,29 @@ async fn work(
     prev: &mut Option<Vec<untis::Lesson>>,
 ) -> Result<(), eyre::Report> {
     let WhitelistEntry {
-        chat_id, thread_id, ..
+        notification_chat,
+        target_class_name,
+        ..
     } = entry;
 
     tracing::info!("Fetching timetable");
 
-    let timetable = client
-        .own_timetable_until(&untis::Date({
-            next_friday(chrono::Local::now().date_naive()) + chrono::Duration::days(7)
-        }))
-        .await?;
+    let date =
+        untis::Date(next_friday(chrono::Local::now().date_naive()) + chrono::Duration::days(7));
+    let timetable = match target_class_name {
+        Some(class_name) => {
+            let classes = client.classes().await?;
+            let found_class = classes.into_iter().find(|class| class.name == *class_name);
+            let id = found_class.map(|class| class.id).ok_or_else(|| {
+                eyre::eyre!("Failed to find class with name {:?}", target_class_name)
+            })?;
+
+            client
+                .timetable_until(&id, &untis::ElementType::Class, &date)
+                .await?
+        }
+        None => client.own_timetable_until(&date).await?,
+    };
 
     if let Some(prev) = prev {
         let mut diffs = Diff::find(prev, &timetable);
@@ -134,7 +156,7 @@ async fn work(
 
             tracing::info!("Diff was found: {:#?}", diffs);
 
-            let mut message = message::LabeledStrings::new();
+            let mut message = message::LabeledMessage::new();
             let mut prev_date: Option<NaiveDate> = None;
 
             for (i, diff) in diffs.into_iter().enumerate() {
@@ -148,27 +170,31 @@ async fn work(
                 } else {
                     None
                 } {
-                    message.push_normal(separator);
+                    message.push(separator);
                 }
 
-                let formatted = format_message(&diff);
-                message.push_normal(formatted.to_string());
+                let formatted = format_message(&diff).into_labeled_message();
 
-                let mut debug = formatted;
-                apply_debug_info(&mut debug, entry, &diff);
-                message.push_debug(debug.to_string());
+                // Add normal view
+                message.extend(formatted.filter_normal());
+
+                // Add debug view with additional debug info
+                message.debug_ln(|msg| {
+                    msg.extend(formatted);
+                    apply_debug_info(msg, entry, &diff)
+                });
             }
 
-            if PROD {
+            if IS_PROD {
                 // Send message to production target
-                send_message(bot, *chat_id, message.display_normal(), *thread_id).await;
+                send_message(bot, *notification_chat, message.filter_normal().to_string()).await?;
             }
             // Send message to debug target
-            send_message(bot, DEBUG_TELEGRAM_CHAT, message.display_all(), None).await;
+            send_message(bot, DEBUG_TELEGRAM_CHAT, message.to_string()).await?;
         }
     }
 
-    if !PROD {
+    if !IS_PROD {
         // Save timetable to file
         match serde_json::to_string_pretty(&timetable) {
             Ok(json) => {
@@ -186,24 +212,49 @@ async fn work(
     Ok(())
 }
 
-async fn send_message(bot: &Bot, chat_id: ChatId, message: String, thread_id: Option<i32>) {
-    let mut req = bot.send_message(chat_id, message);
+async fn update_status(
+    bot: &Bot,
+    client: &mut untis::Client,
+    entry: &WhitelistEntry,
+    status_msg_id: &mut Option<MessageId>,
+    uptime_since: Instant,
+) -> Result<(), eyre::Report> {
+    let WhitelistEntry { status_chat, .. } = entry;
 
-    if let Some(thread_id) = thread_id {
-        req = req.message_thread_id(teloxide::types::ThreadId(teloxide::types::MessageId(
-            thread_id,
-        )));
+    let homeworks = client.homeworks_data().await?.into_homeworks();
+
+    let status_message = crate::status::StatusMessage::new(homeworks, uptime_since);
+    let labeled_message = status_message.into_message();
+
+    if let Some(message_id) = status_msg_id {
+        const MAX_RETRY_ATTEMPTS: u8 = 10;
+
+        for i in 1..=MAX_RETRY_ATTEMPTS {
+            match bot
+                .edit_message_text(status_chat.id, *message_id, labeled_message.to_string())
+                .parse_mode(teloxide::types::ParseMode::MarkdownV2)
+                .send()
+                .await
+            {
+                Ok(_) => return Ok(()),
+                Err(e) => {
+                    tracing::warn!(
+                        "Failed to edit status message (attempt {i}/{MAX_RETRY_ATTEMPTS}): {e}"
+                    );
+                    if i < MAX_RETRY_ATTEMPTS {
+                        tokio::time::sleep(Duration::from_millis(500)).await;
+                    }
+                }
+            }
+        }
+
+        tracing::warn!("All edit attempts failed");
+        *status_msg_id = None;
+    } else {
+        tracing::warn!("Re-sending status message");
+        let msg = send_message(bot, *status_chat, labeled_message.to_string()).await?;
+        status_msg_id.replace(msg.id);
     }
 
-    if let Err(e) = req.clone().send().await {
-        // todo! after integration DB edit the thread id after creating a new topic
-        // if let teloxide::RequestError::Api(teloxide::ApiError::Unknown(ref str)) = e
-        //     && str.contains("message thread not found")
-        // {
-        //     let name = format!("{} Notification", entry.display_name);
-        //     bot.create_forum_topic(chat_id, name, icon_color, icon_custom_emoji_id)
-        // } else {
-        tracing::error!("Failed to send telegram message: {e}");
-        // }
-    }
+    Ok(())
 }

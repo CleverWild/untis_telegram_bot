@@ -1,25 +1,26 @@
-use shuttle_runtime::{tokio::task::JoinSet, SecretStore};
-use teloxide::{prelude::ChatId, Bot};
+use teloxide::{Bot, prelude::ChatId, types::MessageId};
+use tokio::task::JoinSet;
 use tracing::level_filters::LevelFilter;
 
 mod diff_impl;
 mod message;
 mod message_formatter;
+mod status;
 mod utils;
 mod work;
 
-use crate::work::working_loop;
+use crate::work::{Chat, working_loop};
 
-// const PROD: bool = true;
-const PROD: bool = !cfg!(debug_assertions);
+const IS_PROD: bool = !cfg!(debug_assertions);
 
 /// My telegram DM
-const DEBUG_TELEGRAM_CHAT: ChatId = ChatId(690963502);
+const DEBUG_TELEGRAM_CHAT: Chat = Chat {
+    id: ChatId(690963502),
+    thread_id: None,
+};
 
-type ShuttleUntis = Result<BotService, shuttle_runtime::Error>;
-
-#[shuttle_runtime::main]
-async fn main(#[shuttle_runtime::Secrets] secret_store: SecretStore) -> ShuttleUntis {
+#[tokio::main]
+async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::builder()
@@ -31,26 +32,22 @@ async fn main(#[shuttle_runtime::Secrets] secret_store: SecretStore) -> ShuttleU
         .compact()
         .init();
 
-    let (chat_id, thread_id) = if PROD {
-        (teloxide::prelude::ChatId(2476978824), Some(2))
-    } else {
-        (DEBUG_TELEGRAM_CHAT, None)
+    let token = {
+        let config = config::Config::builder()
+            .add_source(config::File::with_name("Secrets.toml"))
+            .build()
+            .expect("Failed to load Secrets.toml");
+        config
+            .get::<String>("bot_token")
+            .expect("Set TELOXIDE_TOKEN or TELEGRAM_BOT_TOKEN to run this test")
     };
-
-    let whitelist = vec![work::WhitelistEntry {
-        chat_id,
-        thread_id,
-        untis_school: "Gewerbliche Schule Waiblingen".to_string(),
-        untis_login: "VABR2".to_string(),
-        untis_password: "gswnVABR2DL".to_string(),
-    }];
 
     let bot_service = BotService {
-        whitelist,
-        token: secret_store.get("bot_token").unwrap(),
+        whitelist: vec![make_whitelist()],
+        token,
     };
 
-    Ok(bot_service)
+    bot_service.launch().await;
 }
 
 pub struct BotService {
@@ -79,13 +76,35 @@ impl BotService {
     }
 }
 
-#[shuttle_runtime::async_trait]
-impl shuttle_runtime::Service for BotService {
-    async fn bind(self, _addr: std::net::SocketAddr) -> Result<(), shuttle_runtime::Error> {
-        self.launch().await;
-
-        tracing::warn!("Bot finished");
-
-        Ok(())
+fn make_whitelist() -> work::WhitelistEntry {
+    if IS_PROD {
+        work::WhitelistEntry {
+            notification_chat: Chat {
+                // For supergroups/channels the real chat id = "-100" + <numeric from /c/>
+                id: ChatId(-1002951933538),
+                thread_id: Some(2),
+            },
+            status_chat: Chat {
+                id: ChatId(-1002951933538),
+                thread_id: Some(231),
+            },
+            status_msg: Some(MessageId(253)), // https://t.me/c/2951933538/231/253
+            untis_school: "KS-Waiblingen".to_string(),
+            untis_login: "BrovkoOle".to_string(),
+            untis_password: "N6C4csN&^*a7vW".to_string(),
+            target_class_name: None,
+            task_name: "VABO1".to_string(),
+        }
+    } else {
+        work::WhitelistEntry {
+            notification_chat: DEBUG_TELEGRAM_CHAT,
+            status_chat: DEBUG_TELEGRAM_CHAT,
+            status_msg: None,
+            untis_school: "KS-Waiblingen".to_string(),
+            untis_login: "BrovkoOle".to_string(),
+            untis_password: "N6C4csN&^*a7vW".to_string(),
+            target_class_name: None,
+            task_name: "VABO1".to_string(),
+        }
     }
 }

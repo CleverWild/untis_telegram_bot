@@ -1,7 +1,7 @@
 use std::net::IpAddr;
 
 use crate::error;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 
 /// Error codes contained in [Untis API errors](Error).
@@ -109,7 +109,12 @@ impl Client {
     ) -> Result<T, error::Error> {
         let request_id = &self.get_id();
         let request = Request::new(request_id, method, params);
-        let response = self.http_client.post(&self.url).json(&request).send().await?;
+        let response = self
+            .http_client
+            .post(&self.url)
+            .json(&request)
+            .send()
+            .await?;
 
         let status = response.status();
         if !status.is_success() {
@@ -119,6 +124,9 @@ impl Client {
         let text = response.text().await?;
 
         let response: Response<Value> = serde_json::from_str(&text)?;
+
+        #[cfg(test)]
+        eprintln!("Method `{}` called with response: {:#?}", method, response);
 
         match response {
             Response::Ok {

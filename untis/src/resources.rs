@@ -2,30 +2,50 @@ use crate::datetime::{Date, Time};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
-    fmt::{Debug, Display},
+    fmt::{self, Debug},
 };
+use strum::{Display, FromRepr};
 
 /// The different types of elements that exist in the Untis API.
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub struct ElementType(pub u8);
+///
+/// Serialized/deserialized as plain numbers to match the upstream API.
+#[derive(
+    Clone,
+    Copy,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Debug,
+    Serialize,
+    Deserialize,
+    Display,
+    FromRepr,
+)]
+#[repr(u8)]
+#[serde(from = "u8", into = "u8")]
+#[strum(serialize_all = "PascalCase")]
+pub enum ElementType {
+    /// Unknown/unsupported type (fallback for forward-compatibility)
+    #[strum(serialize = "Unknown")]
+    Unknown = 0,
+    Class = 1,
+    Teacher = 2,
+    Subject = 3,
+    Room = 4,
+    Student = 5,
+}
 
-impl ElementType {
-    pub fn as_u8(&self) -> u8 {
-        self.0
+impl From<u8> for ElementType {
+    fn from(value: u8) -> Self {
+        Self::from_repr(value).unwrap_or(ElementType::Unknown)
     }
 }
 
-impl Display for ElementType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = match self.0 {
-            1 => "Class",
-            2 => "Teacher",
-            3 => "Subject",
-            4 => "Room",
-            5 => "Student",
-            _ => "Unknown",
-        };
-        write!(f, "{name}")
+impl From<ElementType> for u8 {
+    fn from(value: ElementType) -> Self {
+        value as u8
     }
 }
 
@@ -227,15 +247,23 @@ pub struct Subject {
     pub back_color: Option<String>,
 }
 
-/// Represents a teacher.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Teacher {
+pub struct TeacherBase {
     /// The teacher's id, unique within this school.
     pub id: usize,
 
     /// The teacher's shortened name, unique within this school.
     pub name: String,
+}
+
+/// Represents a teacher.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[impl_tools::autoimpl(Deref, DerefMut using self.base)]
+#[serde(rename_all = "camelCase")]
+pub struct Teacher {
+    #[serde(flatten)]
+    base: TeacherBase,
 
     /// The teacher's first name.
     #[serde(rename = "foreName")]
@@ -341,6 +369,147 @@ pub struct Lesson {
     pub activity_type: String,
 }
 
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RawHomework {
+    pub id: usize,
+    /// The id of the exact lesson this homework is associated with.
+    pub lesson_id: usize,
+    /// The homework's creation date.
+    pub date: Date,
+    /// The homework's deadline date.
+    pub due_date: Date,
+    pub completed: bool,
+    pub remark: String,
+    /// Always provided.
+    pub text: String,
+}
+
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HomeworkLesson {
+    pub id: usize,
+    pub lesson_type: LessonType,
+    pub subject: String,
+}
+
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HomeworkRecord {
+    pub element_ids: Vec<usize>,
+    pub homework_id: usize,
+    pub teacher_id: usize,
+}
+
+/// Response for homework data requests.
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HomeworksData {
+    homeworks: Vec<RawHomework>,
+    lessons: Vec<HomeworkLesson>,
+    records: Vec<HomeworkRecord>,
+    teachers: Vec<TeacherBase>,
+}
+
+impl HomeworksData {
+    #[tracing::instrument(skip(self))]
+    pub fn into_homeworks(self) -> Vec<Homework> {
+        use std::collections::HashMap;
+        // Index raw homeworks by id for fast lookup
+        let mut hw_map: HashMap<usize, RawHomework> = HashMap::with_capacity(self.homeworks.len());
+        for hw in self.homeworks {
+            hw_map.insert(hw.id, hw);
+        }
+
+        // Index lessons by id
+        let mut lesson_map: HashMap<usize, HomeworkLesson> =
+            HashMap::with_capacity(self.lessons.len());
+        for lesson in self.lessons {
+            lesson_map.insert(lesson.id, lesson);
+        }
+
+        // Index teachers by id
+        let mut teacher_map: HashMap<usize, TeacherBase> =
+            HashMap::with_capacity(self.teachers.len());
+        for teacher in self.teachers {
+            teacher_map.insert(teacher.id, teacher);
+        }
+
+        let mut result = Vec::with_capacity(self.records.len());
+        for record in self.records {
+            // Find the raw homework
+            let raw = match hw_map.get(&record.homework_id) {
+                Some(h) => h,
+                None => {
+                    tracing::error!(
+                        homework_id = record.homework_id,
+                        homeworks = ?hw_map,
+                        "Homework record references missing homework"
+                    );
+                    continue;
+                }
+            };
+
+            // Find the lesson corresponding to the raw homework
+            let lesson = match lesson_map.get(&raw.lesson_id) {
+                Some(l) => l,
+                None => {
+                    tracing::error!(
+                        lesson_id = raw.lesson_id,
+                        lessons = ?lesson_map,
+                        homeworks = ?hw_map,
+                        "Homework references missing lesson"
+                    );
+                    continue;
+                }
+            };
+
+            // Find the teacher referenced in the record
+            let teacher = match teacher_map.get(&record.teacher_id) {
+                Some(t) => t,
+                None => {
+                    tracing::warn!(
+                        teacher_id = record.teacher_id,
+                        teachers = ?teacher_map,
+                        homeworks = ?hw_map,
+                        "Homework record references missing teacher"
+                    );
+                    &TeacherBase {
+                        id: 0,
+                        name: String::from("N/A"),
+                    }
+                }
+            };
+
+            // Construct final Homework value (clone small structs)
+            result.push(Homework {
+                id: raw.id,
+                date: raw.date,
+                due_date: raw.due_date,
+                is_completed: raw.completed,
+                remark: raw.remark.clone(),
+                text: raw.text.clone(),
+                lesson: lesson.clone(),
+                teacher: teacher.clone(),
+            });
+        }
+
+        result
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+pub struct Homework {
+    pub id: usize,
+    pub date: Date,
+    pub due_date: Date,
+    pub is_completed: bool,
+    pub remark: String,
+    pub text: String,
+    pub lesson: HomeworkLesson,
+    pub teacher: TeacherBase,
+}
+
 /// Represents the status of a lesson (regular, cancelled, etc.)
 #[derive(
     Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Hash, Debug, Serialize, Deserialize,
@@ -353,7 +522,7 @@ pub enum LessonCode {
     Cancelled,
 }
 
-impl Display for LessonCode {
+impl fmt::Display for LessonCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = match self {
             LessonCode::Regular => "Regular",

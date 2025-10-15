@@ -1,11 +1,10 @@
 //! Core formatting functionality - the basic message dispatcher and public API
 
-use std::fmt::Display;
-
 use super::formatters::{LessonChangeFormatter, NewLessonFormatter};
 use crate::{
     diff_impl::Diff,
-    message_formatter::fields::{DEFAULT_BUFFER_CAPACITY, FIELD_SEPARATOR, Field, FieldDiff},
+    message::LabeledMessage,
+    message_formatter::fields::{FIELD_SEPARATOR, Field, FieldDiff},
     work::WhitelistEntry,
 };
 
@@ -18,7 +17,7 @@ use crate::{
 /// # Returns
 ///
 /// A formatted message ready for display in Telegram
-pub fn format_message(diff: &Diff) -> Message {
+pub fn format_message(diff: &Diff) -> LessonMessage {
     MessageDispatcher::default().dispatch(diff)
 }
 
@@ -31,7 +30,7 @@ pub(super) struct MessageDispatcher {
 
 impl MessageDispatcher {
     /// Dispatches the diff to the appropriate formatter
-    pub(super) fn dispatch(&self, diff: &Diff) -> Message {
+    pub(super) fn dispatch(&self, diff: &Diff) -> LessonMessage {
         match diff {
             Diff::Changed { from, to } => self.lesson_change_formatter.format_change(from, to),
             Diff::Added(lesson) => self.new_lesson_formatter.format_new(lesson),
@@ -49,16 +48,15 @@ pub enum MessageHeader {
 pub enum MessageField {
     Normal(Field),
     Changed(FieldDiff),
-    Raw(String),
 }
 
 #[derive(Debug, Clone)]
-pub struct Message {
+pub struct LessonMessage {
     header: MessageHeader,
     fields: Vec<MessageField>,
 }
 
-impl Message {
+impl LessonMessage {
     pub fn new(with_type: MessageHeader, fields: Vec<MessageField>) -> Self {
         Self {
             header: with_type,
@@ -70,65 +68,61 @@ impl Message {
         self.fields.push(MessageField::Normal(field));
     }
 
-    pub fn pushln(&mut self, line: String) {
-        self.fields.push(MessageField::Raw(line));
-    }
-}
-
-impl Display for Message {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut buffer = String::with_capacity(DEFAULT_BUFFER_CAPACITY);
+    /// Convert this LessonMessage into a LabeledMessage for unified message handling
+    pub fn into_labeled_message(self) -> LabeledMessage {
+        let mut msg = LabeledMessage::new();
 
         match self.header {
             MessageHeader::Changed => {
-                buffer.push_str("Changes in lesson:\n");
+                msg.push("Changes in lesson:").nl();
             }
             MessageHeader::Added => {
-                buffer.push_str("New lesson:\n");
+                msg.push("New lesson:").nl();
             }
         }
 
         for (i, field) in self.fields.iter().enumerate() {
             if i > 0 {
-                buffer.push('\n');
+                msg.nl();
             }
 
             match field {
                 MessageField::Normal(field) => {
-                    buffer.push_str(field.name);
-                    buffer.push_str(FIELD_SEPARATOR);
-                    buffer.push_str(&field.value);
+                    msg.push(field.name);
+                    msg.push(FIELD_SEPARATOR);
+                    msg.push(&field.value);
                 }
                 MessageField::Changed(diff) => {
                     if let Some(formatted) = diff.format() {
-                        buffer.push_str(&formatted);
+                        msg.push(formatted);
                     }
-                }
-                MessageField::Raw(raw) => {
-                    buffer.push_str(raw);
                 }
             }
         }
 
-        write!(f, "{buffer}")
+        msg
     }
 }
 
-pub fn apply_debug_info(message: &mut Message, _entry: &WhitelistEntry, diff: &Diff) {
+pub fn apply_debug_info<'a>(
+    message: &'a mut LabeledMessage,
+    _entry: &WhitelistEntry,
+    diff: &Diff,
+) -> &'a mut LabeledMessage {
     // Add debug information to the message
-    let debug_info = match diff {
-        Diff::Changed { from, to } => format!(
-            "Debug info: Changed lesson from {} to {}",
-            from.subjects.first().map_or("None", |s| &s.name),
-            to.subjects.first().map_or("None", |s| &s.name)
-        ),
-        Diff::Added(lesson) => format!(
-            "Debug info: Added new lesson for {}",
-            lesson.subjects.first().map_or("None", |s| &s.name)
-        ),
-    };
-
-    message.pushln(debug_info);
+    match diff {
+        Diff::Changed { from, to } => {
+            message.push("Debug info: Changed lesson from ");
+            message.push(from.subjects.first().map_or("None", |s| &s.name));
+            message.push(" to ");
+            message.push(to.subjects.first().map_or("None", |s| &s.name));
+        }
+        Diff::Added(lesson) => {
+            message.push("Debug info: Added new lesson for ");
+            message.push(lesson.subjects.first().map_or("None", |s| &s.name));
+        }
+    }
+    message
 }
 
 #[cfg(test)]
@@ -154,10 +148,26 @@ mod tests {
                 to: "09:00 - 10:30".to_string(),
                 visibility: FieldVisibility::Always,
             }),
-            MessageField::Raw("`This is a raw message`".to_string()),
         ];
 
-        let message = Message::new(MessageHeader::Changed, fields);
-        println!("{message}");
+        let message = LessonMessage::new(MessageHeader::Changed, fields);
+        let labeled = message.into_labeled_message();
+        println!("{}", labeled);
+    }
+
+    #[test]
+    fn test_labeled_message_conversion() {
+        // Test that LessonMessage properly converts to LabeledMessage
+        let fields = vec![MessageField::Normal(Field {
+            name: "Subject",
+            value: "Math".to_string(),
+        })];
+
+        let message = LessonMessage::new(MessageHeader::Added, fields);
+        let labeled = message.into_labeled_message();
+        let output = labeled.to_string();
+
+        assert!(output.contains("New lesson"));
+        assert!(output.contains("Math"));
     }
 }
