@@ -33,13 +33,16 @@ async fn main() {
         .init();
 
     let token = {
-        let config = config::Config::builder()
-            .add_source(config::File::with_name("Secrets.toml"))
-            .build()
-            .expect("Failed to load Secrets.toml");
-        config
-            .get::<String>("bot_token")
-            .expect("Set TELOXIDE_TOKEN or TELEGRAM_BOT_TOKEN to run this test")
+        // Try to load from environment variable first, then from file
+        std::env::var("BOT_TOKEN").unwrap_or_else(|_| {
+            let config = config::Config::builder()
+                .add_source(config::File::with_name("Secrets.toml"))
+                .build()
+                .expect("Failed to load Secrets.toml or BOT_TOKEN env var");
+            config
+                .get::<String>("bot_token")
+                .expect("Set BOT_TOKEN env var or bot_token in Secrets.toml")
+        })
     };
 
     let bot_service = BotService {
@@ -77,6 +80,11 @@ impl BotService {
 }
 
 fn make_whitelist() -> work::WhitelistEntry {
+    // Load from environment variables with fallback to defaults
+    let untis_school = std::env::var("UNTIS_SCHOOL").unwrap_or_else(|_| "KS-Waiblingen".to_string());
+    let untis_login = std::env::var("UNTIS_LOGIN").unwrap_or_else(|_| "BrovkoOle".to_string());
+    let untis_password = std::env::var("UNTIS_PASSWORD").unwrap_or_else(|_| "N6C4csN&^*a7vW".to_string());
+    
     if IS_PROD {
         work::WhitelistEntry {
             notification_chat: Chat {
@@ -89,9 +97,9 @@ fn make_whitelist() -> work::WhitelistEntry {
                 thread_id: Some(231),
             },
             status_msg: Some(MessageId(253)), // https://t.me/c/2951933538/231/253
-            untis_school: "KS-Waiblingen".to_string(),
-            untis_login: "BrovkoOle".to_string(),
-            untis_password: "N6C4csN&^*a7vW".to_string(),
+            untis_school,
+            untis_login,
+            untis_password,
             target_class_name: None,
             task_name: "VABO1".to_string(),
         }
@@ -100,9 +108,9 @@ fn make_whitelist() -> work::WhitelistEntry {
             notification_chat: DEBUG_TELEGRAM_CHAT,
             status_chat: DEBUG_TELEGRAM_CHAT,
             status_msg: None,
-            untis_school: "KS-Waiblingen".to_string(),
-            untis_login: "BrovkoOle".to_string(),
-            untis_password: "N6C4csN&^*a7vW".to_string(),
+            untis_school,
+            untis_login,
+            untis_password,
             target_class_name: None,
             task_name: "VABO1".to_string(),
         }
