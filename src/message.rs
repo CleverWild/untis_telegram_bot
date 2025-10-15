@@ -102,8 +102,12 @@ impl LabeledMessage {
 
 impl Display for LabeledMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let display = if IS_PROD {
-            format!("{}", self.filter_normal())
+        let display: String = if IS_PROD {
+            self.0
+                .iter()
+                .filter(|s| matches!(**s, LabeledString::Normal(_)))
+                .map(|s| s.to_string())
+                .collect()
         } else {
             self.0.iter().map(|s| s.to_string()).collect()
         };
