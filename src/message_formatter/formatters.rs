@@ -1,45 +1,43 @@
 //! Specialized formatters for different message types
 
-use crate::message_formatter::core::{Message, MessageField, MessageHeader};
+use crate::message_formatter::core::{LessonMessage, MessageField, MessageHeader};
 
-use super::fields::{FieldDiff, FieldRegistry, LessonField};
+use super::fields::{FieldDiff, FieldRegistry};
 
 /// Formats lesson changes by comparing before and after states
-pub struct LessonChangeFormatter {
-    pub fields: Vec<LessonField>,
-}
+#[derive(Default)]
+pub struct LessonChangeFormatter;
 
 impl LessonChangeFormatter {
-    /// Creates a new lesson change formatter
-    pub fn new() -> Self {
-        Self {
-            fields: FieldRegistry::standard_fields(),
-        }
-    }
-
     /// Creates a Message for a lesson change
-    pub fn format_change(&self, from: &untis::Lesson, to: &untis::Lesson) -> Message {
-        let field_diffs = self
-            .fields
+    pub fn format_change(&self, from: &untis::Lesson, to: &untis::Lesson) -> LessonMessage {
+        let field_diffs = FieldRegistry::standard_fields()
             .iter()
             .filter_map(|field| {
-                FieldDiff::new(
-                    field.name,
-                    field.extract(from),
-                    field.extract(to),
-                    field.config,
-                )
-                .map(MessageField::Changed)
+                let from_value = field.extract(from);
+                let to_value = field.extract(to);
+
+                if let Some(diff) =
+                    FieldDiff::new(field.name, from_value.clone(), to_value, field.config)
+                {
+                    // Field has changes, show as changed
+                    Some(MessageField::Changed(diff))
+                } else if field.config == super::fields::FieldVisibility::Always
+                    && !from_value.is_empty()
+                {
+                    // Field hasn't changed but is marked as required (Always) and has a value
+                    Some(MessageField::Normal(super::fields::Field {
+                        name: field.name,
+                        value: from_value,
+                    }))
+                } else {
+                    // Field hasn't changed and is not required, skip it
+                    None
+                }
             })
             .collect::<Vec<_>>();
 
-        Message::new(MessageHeader::Changed, field_diffs)
-    }
-}
-
-impl Default for LessonChangeFormatter {
-    fn default() -> Self {
-        Self::new()
+        LessonMessage::new(MessageHeader::Changed, field_diffs)
     }
 }
 
@@ -49,7 +47,8 @@ pub struct NewLessonFormatter;
 
 impl NewLessonFormatter {
     /// Creates a Message for a new lesson notification
-    pub fn format_new(&self, lesson: &untis::Lesson) -> Message {
+    /// Note: Field values should NOT be pre-escaped as they will be escaped during Display formatting
+    pub fn format_new(&self, lesson: &untis::Lesson) -> LessonMessage {
         use super::fields::Field;
 
         let fields = vec![
@@ -80,6 +79,6 @@ impl NewLessonFormatter {
         .map(MessageField::Normal)
         .collect::<Vec<_>>();
 
-        Message::new(MessageHeader::Added, fields)
+        LessonMessage::new(MessageHeader::Added, fields)
     }
 }

@@ -1,6 +1,7 @@
-use chrono::TimeZone;
+use chrono::{Duration, NaiveDate, TimeZone};
+use serde_json::Value;
 
-use crate::{datetime::Date, error::Error, jsonrpc, params, resources::*, Session};
+use crate::{Session, datetime::Date, error::Error, jsonrpc, params, resources::*};
 
 /// Client for accessing the Untis API. Can be constructed by [`Client::login()`](Self::login) or [`School::client_login()`](School::client_login).
 ///
@@ -17,10 +18,14 @@ use crate::{datetime::Date, error::Error, jsonrpc, params, resources::*, Session
 pub struct Client {
     rpc_client: jsonrpc::Client,
     pub session: Session,
+    // Store server + school for constructing REST (non-jsonrpc) endpoints like /api/homeworks
+    server: String,
+    #[allow(dead_code)] // Might be used later for other REST endpoints
+    school: String,
 }
 
 impl Client {
-    /// Асинхронный метод для создания новой сессии.
+    /// Asynchronous method to create a new session.
     pub async fn login(
         server: &str,
         school: &str,
@@ -37,6 +42,8 @@ impl Client {
         Ok(Self {
             rpc_client,
             session,
+            server: server.to_string(),
+            school: school.to_string(),
         })
     }
 
@@ -45,33 +52,33 @@ impl Client {
         &self.session
     }
 
-    /// Возвращает последний раз, когда любое расписание в этой школе было обновлено.
+    /// Returns the last time any schedule in this school was updated.
     pub async fn last_update_time(&mut self) -> Result<chrono::DateTime<chrono::Utc>, Error> {
         let ts: i64 = self.rpc_client.request("getLatestImportTime", ()).await?;
         Ok(chrono::Utc.timestamp_millis_opt(ts).unwrap())
     }
 
-    /// Возвращает статусные данные для отображения расписания.
+    /// Returns status data for displaying the schedule.
     pub async fn status_data(&mut self) -> Result<StatusData, Error> {
         self.rpc_client.request("getStatusData", ()).await
     }
 
-    /// Получает текущий учебный год.
+    /// Gets the current school year.
     pub async fn current_schoolyear(&mut self) -> Result<Schoolyear, Error> {
         self.rpc_client.request("getCurrentSchoolyear", ()).await
     }
 
-    /// Получает список всех учебных годов.
+    /// Gets a list of all school years.
     pub async fn schoolyears(&mut self) -> Result<Vec<Schoolyear>, Error> {
         self.rpc_client.request("getSchoolyears", ()).await
     }
 
-    /// Получает каникулы в текущем учебном году.
+    /// Gets holidays in the current school year.
     pub async fn holidays(&mut self) -> Result<Vec<Holiday>, Error> {
         self.rpc_client.request("getHolidays", ()).await
     }
 
-    /// Получает список комнат в школе пользователя.
+    /// Gets a list of rooms in the user's school.
     pub async fn rooms(&mut self) -> Result<Vec<Room>, Error> {
         self.rpc_client.request("getRooms", ()).await
     }
@@ -96,22 +103,53 @@ impl Client {
         self.rpc_client.request("getStudents", ()).await
     }
 
+    pub async fn homeworks_data(&mut self) -> Result<HomeworksData, Error> {
+        self.homeworks_data_between(
+            Date::today(),
+            Date(chrono::Local::now().date_naive() + Duration::days(28)),
+        )
+        .await
+    }
+
+    /// Retrieves the list of homework entries of the user.
+    pub async fn homeworks_data_between(
+        &mut self,
+        start_date: Date,
+        end_date: Date,
+    ) -> Result<HomeworksData, Error> {
+        let response = self
+            .rpc_client
+            .http_client
+            .get(format!(
+                "https://{}/WebUntis/api/homeworks/lessons",
+                self.server
+            ))
+            .query(&[("startDate", start_date), ("endDate", end_date)])
+            .send()
+            .await?
+            .error_for_status()?;
+
+        let value = response.json::<Value>().await?["data"].clone();
+        Ok(serde_json::from_value::<HomeworksData>(value)?)
+    }
+
     /// Retrieves the user's own timetable between now and a given date.
     pub async fn own_timetable_until(&mut self, end_date: &Date) -> Result<Vec<Lesson>, Error> {
         self.own_timetable_between(&Date::today(), end_date).await
     }
 
-    /// Retrieves the users's own timetable for the current week.
+    /// Retrieves the user's own timetable for the current week.
     pub async fn own_timetable_current_week(&mut self) -> Result<Vec<Lesson>, Error> {
         self.own_timetable_for_week(&Date::today()).await
     }
 
-    /// Retrieves the users's own timetable for the week that a given date is in.
+    /// Retrieves the user's own timetable for the week that a given date is in.
     pub async fn own_timetable_for_week(&mut self, date: &Date) -> Result<Vec<Lesson>, Error> {
-        self.own_timetable_between(&date.relative_week_begin(), &date.relative_week_end()).await
+        self.own_timetable_between(&date.relative_week_begin(), &date.relative_week_end())
+            .await
     }
 
-    /// Retrieves the users's own timetable between two dates.
+    /// Retrieves the user's own timetable between two dates.
     pub async fn own_timetable_between(
         &mut self,
         start_date: &Date,
@@ -122,7 +160,8 @@ impl Client {
             &self.session.person_type.clone(),
             start_date,
             end_date,
-        ).await
+        )
+        .await
     }
 
     /// Retrieves an element's timetable between now and a given date.
@@ -132,7 +171,8 @@ impl Client {
         ty: &ElementType,
         end_date: &Date,
     ) -> Result<Vec<Lesson>, Error> {
-        self.timetable_between(id, ty, &Date::today(), end_date).await
+        self.timetable_between(id, ty, &Date::today(), end_date)
+            .await
     }
 
     /// Retrieves an element's timetable for the current week.
@@ -156,7 +196,8 @@ impl Client {
             ty,
             &date.relative_week_begin(),
             &date.relative_week_end(),
-        ).await
+        )
+        .await
     }
 
     /// Retrieves an element's own timetable between two dates.

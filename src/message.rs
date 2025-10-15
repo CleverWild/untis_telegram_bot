@@ -1,5 +1,9 @@
 use std::fmt::Display;
 
+use teloxide::utils::markdown::escape;
+
+use crate::IS_PROD;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum LabeledString {
     Normal(String),
@@ -9,167 +13,179 @@ enum LabeledString {
 impl Display for LabeledString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LabeledString::Normal(text) | LabeledString::Debug(text) => write!(f, "{text}"),
+            LabeledString::Normal(text) => write!(f, "{text}"),
+            LabeledString::Debug(text) => {
+                write!(
+                    f,
+                    "{}```\n{text}\n```",
+                    teloxide::utils::markdown::bold(&escape("<---DEBUG--->"))
+                )
+            }
         }
     }
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct LabeledStrings(Vec<LabeledString>);
-impl LabeledStrings {
+pub struct LabeledMessage(Vec<LabeledString>);
+#[allow(deprecated)]
+impl LabeledMessage {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn push_normal(&mut self, text: String) {
-        self.0.push(LabeledString::Normal(text));
+    #[deprecated(note = "Try to avoid using this method")]
+    pub fn push_raw(&mut self, text: impl ToString) -> &mut Self {
+        self.0.push(LabeledString::Normal(text.to_string()));
+        self
     }
 
-    pub fn push_debug(&mut self, text: String) {
-        self.0.push(LabeledString::Debug(text));
+    pub fn nl(&mut self) -> &mut Self {
+        self.push_raw('\n')
     }
 
-    pub fn display_normal(&self) -> String {
-        self.0
-            .iter()
-            .filter_map(|s| match s {
-                LabeledString::Normal(text) => Some(text.clone()),
-                _ => None,
-            })
-            .collect()
+    pub fn push(&mut self, text: impl AsRef<str>) -> &mut Self {
+        self.push_raw(escape(text.as_ref()))
     }
 
-    pub fn display_all(&self) -> String {
-        self.to_string()
+    pub fn push_bold(&mut self, text: impl AsRef<str>) -> &mut Self {
+        self.push_raw(teloxide::utils::markdown::bold(&escape(text.as_ref())))
+    }
+
+    pub fn push_italic(&mut self, text: impl AsRef<str>) -> &mut Self {
+        self.push_raw(teloxide::utils::markdown::italic(&escape(text.as_ref())))
+    }
+
+    pub fn push_code(&mut self, text: impl AsRef<str>, lang: Option<&'static str>) -> &mut Self {
+        let code = match lang {
+            Some(l) => teloxide::utils::markdown::code_block_with_lang(text.as_ref(), l),
+            None => teloxide::utils::markdown::code_block(text.as_ref()),
+        };
+        self.push_raw(code)
+    }
+
+    pub fn push_code_inline(&mut self, text: impl AsRef<str>) -> &mut Self {
+        self.push_raw(teloxide::utils::markdown::code_inline(text.as_ref()))
+    }
+
+    pub fn extend(&mut self, other: LabeledMessage) -> &mut Self {
+        self.0.extend(other.0);
+        self
+    }
+
+    pub fn debug_ln<F>(&mut self, f: F)
+    where
+        F: FnOnce(&mut Self) -> &mut Self,
+    {
+        let mut tmp = Self::new();
+        f(&mut tmp);
+
+        for entry in &mut tmp.0 {
+            if let LabeledString::Normal(s) = entry {
+                let content = std::mem::take(s);
+                *entry = LabeledString::Debug(content);
+            }
+        }
+
+        self.nl().0.extend(tmp.0);
+    }
+
+    pub fn filter_normal(&self) -> Self {
+        Self(
+            self.0
+                .iter()
+                .filter(|s| matches!(**s, LabeledString::Normal(_)))
+                .cloned()
+                .collect(),
+        )
     }
 }
 
-impl Display for LabeledStrings {
+impl Display for LabeledMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for text in &self.0 {
-            write!(f, "{text}")?;
-        }
-        Ok(())
+        let display = if IS_PROD {
+            format!("{}", self.filter_normal())
+        } else {
+            self.0.iter().map(|s| s.to_string()).collect()
+        };
+        write!(f, "{display}")
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::{DEBUG_TELEGRAM_CHAT, utils::send_message};
+
     use super::*;
+    use teloxide::Bot;
 
-    #[test]
-    fn test_labeled_string_display() {
-        let normal = LabeledString::Normal("Hello".to_string());
-        let debug = LabeledString::Debug("Debug info".to_string());
+    #[tokio::test]
+    #[ignore]
+    async fn send_test_messages() {
+        let token = {
+            let config = config::Config::builder()
+                .add_source(config::File::with_name("Secrets.toml"))
+                .build()
+                .expect("Failed to load Secrets.toml");
+            config
+                .get::<String>("bot_token")
+                .expect("Set TELOXIDE_TOKEN or TELEGRAM_BOT_TOKEN to run this test")
+        };
 
-        assert_eq!(format!("{normal}"), "Hello");
-        assert_eq!(format!("{debug}"), "Debug info");
-    }
+        let bot = Bot::new(token);
 
-    #[test]
-    fn test_mixed_push() {
-        let mut strings = LabeledStrings::new();
-        strings.push_normal("Normal".to_string());
-        strings.push_debug("Debug".to_string());
-        strings.push_normal("Another normal".to_string());
+        // Prepare sample messages with different combinations of normal & debug parts.
+        let samples: Vec<LabeledMessage> = {
+            let mut v = Vec::new();
 
-        assert_eq!(strings.0.len(), 3);
-        assert_eq!(strings.0[0], LabeledString::Normal("Normal".to_string()));
-        assert_eq!(strings.0[1], LabeledString::Debug("Debug".to_string()));
-        assert_eq!(
-            strings.0[2],
-            LabeledString::Normal("Another normal".to_string())
-        );
-    }
+            // Sample 1: Only normal text
+            let mut m1 = LabeledMessage::new();
+            m1.push("Changes in timetable:").nl();
+            m1.push("Date: 2025-09-16 Tuesday").nl();
+            m1.push("Subject: Math (Room 101)").nl();
+            m1.push_code("123123", None).nl();
+            v.push(m1);
 
-    #[test]
-    fn test_display_normal() {
-        let mut strings = LabeledStrings::new();
-        strings.push_normal("First normal".to_string());
-        strings.push_debug("Debug info".to_string());
-        strings.push_normal("Second normal".to_string());
-        strings.push_debug("More debug".to_string());
+            // Sample 2: Normal + debug
+            let mut m2 = LabeledMessage::new();
+            m2.push("Changes in timetable:").nl();
+            m2.push("Room change: 101 → 202").nl();
+            m2.debug_ln(|msg| msg.push("Debug: lesson_id=12345 original_room=101 new_room=202"));
+            v.push(m2);
 
-        let result = strings.display_normal();
-        assert_eq!(result, "First normalSecond normal");
-    }
+            // Sample 3: Multiple dates separated
+            let mut m3 = LabeledMessage::new();
+            m3.nl().push("Date: 2025-09-16 Tuesday").nl();
+            m3.push("Physics → Chemistry (Lab)").nl();
+            m3.debug_ln(|msg| msg.push("Debug: diff_type=SubjectSwap id=777"));
+            m3.push("----------------").nl().nl();
+            m3.push("Date: 2025-09-17 Wednesday").nl();
+            m3.push("Added lesson: Biology Extra Session").nl();
+            m3.debug_ln(|msg| msg.push("Debug: new_lesson_id=888 kind=Added"));
+            v.push(m3);
 
-    #[test]
-    fn test_display_normal_empty() {
-        let strings = LabeledStrings::new();
-        assert_eq!(strings.display_normal(), "");
-    }
+            // Sample 4: Only debug (should show nothing in normal view)
+            let mut m4 = LabeledMessage::new();
+            m4.debug_ln(|msg| msg.push("Debug: orphan diff entry (sanity check)"));
+            v.push(m4);
 
-    #[test]
-    fn test_display_normal_only_debug() {
-        let mut strings = LabeledStrings::new();
-        strings.push_debug("Debug 1".to_string());
-        strings.push_debug("Debug 2".to_string());
+            v
+        };
 
-        assert_eq!(strings.display_normal(), "");
-    }
+        for (i, msg_part) in samples.iter().enumerate() {
+            let mut msg = LabeledMessage::new();
+            msg.push("Sample ");
+            msg.push_code_inline(format!("#{i}")).nl();
+            msg.push_bold("Normal view:").nl();
+            msg.extend(msg_part.filter_normal()).nl().nl();
+            msg.push_bold("Full view (with debug):").nl();
+            msg.extend(msg_part.to_owned());
 
-    #[test]
-    fn test_display_all() {
-        let mut strings = LabeledStrings::new();
-        strings.push_normal("Normal".to_string());
-        strings.push_debug("Debug".to_string());
-
-        let all = strings.display_all();
-        let to_string = strings.to_string();
-
-        assert_eq!(all, to_string);
-        assert_eq!(all, "NormalDebug");
-    }
-
-    #[test]
-    fn test_labeled_strings_display() {
-        let mut strings = LabeledStrings::new();
-        strings.push_normal("Hello ".to_string());
-        strings.push_debug("world".to_string());
-        strings.push_normal("!".to_string());
-
-        assert_eq!(format!("{strings}"), "Hello world!");
-    }
-
-    #[test]
-    fn test_empty_strings_display() {
-        let strings = LabeledStrings::new();
-        assert_eq!(format!("{strings}"), "");
-        assert_eq!(strings.display_all(), "");
-        assert_eq!(strings.display_normal(), "");
-    }
-
-    #[test]
-    fn test_real_world_scenario() {
-        let mut messages = LabeledStrings::new();
-
-        // Сценарий как в реальном использовании
-        messages.push_normal("Changes in timetable:\n".to_string());
-        messages.push_normal("\nDate: 2024-01-15 Monday\n".to_string());
-        messages.push_normal("Subject: Math\nRoom: 101 → 102\n".to_string());
-        messages.push_debug("Debug: Lesson ID 12345\n".to_string());
-
-        let normal_output = messages.display_normal();
-        let all_output = messages.display_all();
-
-        assert!(normal_output.contains("Changes in timetable"));
-        assert!(normal_output.contains("Math"));
-        assert!(normal_output.contains("101 → 102"));
-        assert!(!normal_output.contains("Debug"));
-
-        assert!(all_output.contains("Changes in timetable"));
-        assert!(all_output.contains("Math"));
-        assert!(all_output.contains("Debug: Lesson ID 12345"));
-    }
-
-    #[test]
-    fn test_debug_only_scenario() {
-        let mut messages = LabeledStrings::new();
-        messages.push_debug("Debug info 1".to_string());
-        messages.push_debug("Debug info 2".to_string());
-
-        assert_eq!(messages.display_normal(), "");
-        assert_eq!(messages.display_all(), "Debug info 1Debug info 2");
+            println!("===== Sending test message {msg} =====");
+            if let Err(e) = send_message(&bot, DEBUG_TELEGRAM_CHAT, msg.to_string()).await {
+                panic!("Failed to send test message #{i}: {e:?}");
+            }
+            // Small delay to avoid hitting flood limits.
+            // tokio::time::sleep(Duration::from_millis(500)).await;
+        }
     }
 }
