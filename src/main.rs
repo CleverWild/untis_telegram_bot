@@ -28,7 +28,7 @@ async fn main() {
                 .from_env_lossy(),
         )
         .without_time()
-        .pretty()
+        .with_ansi(!IS_PROD) // Disable ANSI color codes in production for cleaner logs
         .compact()
         .init();
 
@@ -81,10 +81,12 @@ impl BotService {
 
 fn make_whitelist() -> work::WhitelistEntry {
     // Load from environment variables with fallback to defaults
-    let untis_school = std::env::var("UNTIS_SCHOOL").unwrap_or_else(|_| "KS-Waiblingen".to_string());
+    let untis_school =
+        std::env::var("UNTIS_SCHOOL").unwrap_or_else(|_| "KS-Waiblingen".to_string());
     let untis_login = std::env::var("UNTIS_LOGIN").unwrap_or_else(|_| "BrovkoOle".to_string());
-    let untis_password = std::env::var("UNTIS_PASSWORD").unwrap_or_else(|_| "N6C4csN&^*a7vW".to_string());
-    
+    let untis_password =
+        std::env::var("UNTIS_PASSWORD").unwrap_or_else(|_| "N6C4csN&^*a7vW".to_string());
+
     if IS_PROD {
         work::WhitelistEntry {
             notification_chat: Chat {
