@@ -51,9 +51,8 @@ pub fn align_next_minute() -> Instant {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default();
 
-    let secs_left = 60 - now.as_secs() % 60;
-    let nanos_left =
-        Duration::from_secs(secs_left) - Duration::from_nanos(now.subsec_nanos() as u64);
+    let secs_left = Duration::from_secs(60 - now.as_secs() % 60);
+    let nanos_left = secs_left - Duration::from_nanos(now.subsec_nanos() as u64);
 
     Instant::now() + nanos_left
 }

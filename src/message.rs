@@ -5,28 +5,31 @@ use teloxide::utils::markdown::escape;
 use crate::IS_PROD;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum LabeledString {
+enum LabeledMessageInner {
     Normal(String),
-    Debug(String),
+    Debug(LabeledMessage),
+    Strikethrough(LabeledMessage),
 }
 
-impl Display for LabeledString {
+impl Display for LabeledMessageInner {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LabeledString::Normal(text) => write!(f, "{text}"),
-            LabeledString::Debug(text) => {
+            Self::Normal(text) => write!(f, "{text}"),
+            Self::Debug(msg) => {
                 write!(
                     f,
-                    "{}```\n{text}\n```",
-                    teloxide::utils::markdown::bold(&escape("<---DEBUG--->"))
+                    "{}```\n{}\n```",
+                    teloxide::utils::markdown::bold(&escape("<---DEBUG--->")),
+                    msg
                 )
             }
+            Self::Strikethrough(msg) => write!(f, "~{}~", msg),
         }
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct LabeledMessage(Vec<LabeledString>);
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LabeledMessage(Vec<LabeledMessageInner>);
 #[allow(deprecated)]
 impl LabeledMessage {
     pub fn new() -> Self {
@@ -35,7 +38,7 @@ impl LabeledMessage {
 
     #[deprecated(note = "Try to avoid using this method")]
     pub fn push_raw(&mut self, text: impl ToString) -> &mut Self {
-        self.0.push(LabeledString::Normal(text.to_string()));
+        self.0.push(LabeledMessageInner::Normal(text.to_string()));
         self
     }
 
@@ -67,7 +70,17 @@ impl LabeledMessage {
         self.push_raw(teloxide::utils::markdown::code_inline(text.as_ref()))
     }
 
-    pub fn extend(&mut self, other: LabeledMessage) -> &mut Self {
+    pub fn enter_strikethrough<F>(&mut self, f: F) -> &mut Self
+    where
+        F: FnOnce(&mut Self) -> &mut Self,
+    {
+        let mut tmp = Self::new();
+        f(&mut tmp);
+        self.0.push(LabeledMessageInner::Strikethrough(tmp));
+        self
+    }
+
+    pub fn extend(&mut self, other: Self) -> &mut Self {
         self.0.extend(other.0);
         self
     }
@@ -79,22 +92,20 @@ impl LabeledMessage {
         let mut tmp = Self::new();
         f(&mut tmp);
 
-        for entry in &mut tmp.0 {
-            if let LabeledString::Normal(s) = entry {
-                let content = std::mem::take(s);
-                *entry = LabeledString::Debug(content);
-            }
-        }
-
-        self.nl().0.extend(tmp.0);
+        self.nl().0.push(LabeledMessageInner::Debug(tmp));
     }
 
     pub fn filter_normal(&self) -> Self {
         Self(
             self.0
                 .iter()
-                .filter(|s| matches!(**s, LabeledString::Normal(_)))
-                .cloned()
+                .filter_map(|s| match s {
+                    LabeledMessageInner::Normal(_) => Some(s.clone()),
+                    LabeledMessageInner::Debug(_) => None,
+                    LabeledMessageInner::Strikethrough(msg) => {
+                        Some(LabeledMessageInner::Strikethrough(msg.filter_normal()))
+                    }
+                })
                 .collect(),
         )
     }
@@ -102,21 +113,77 @@ impl LabeledMessage {
 
 impl Display for LabeledMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let display = if IS_PROD {
-            format!("{}", self.filter_normal())
+        let display: String = if IS_PROD {
+            self.filter_normal()
+                .0
+                .iter()
+                .map(|s| s.to_string())
+                .collect()
         } else {
             self.0.iter().map(|s| s.to_string()).collect()
         };
+
         write!(f, "{display}")
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{DEBUG_TELEGRAM_CHAT, utils::send_message};
+    use crate::{
+        DEBUG_TELEGRAM_CHAT, message_formatter::formatters::LessonChangeFormatter,
+        utils::send_message,
+    };
 
     use super::*;
     use teloxide::Bot;
+    use untis::{IdItem, Lesson, LessonCode, LessonType};
+
+    // Helper function to create test IdItem
+    fn test_id_item(id: isize, name: &str) -> IdItem {
+        IdItem {
+            id,
+            name: name.to_string(),
+            orig_id: None,
+            orig_name: None,
+        }
+    }
+
+    // Helper function to create a test lesson
+    fn test_lesson(
+        id: usize,
+        date_str: &str,
+        start_hour: u32,
+        end_hour: u32,
+        subject: &str,
+        teacher: &str,
+        room: &str,
+    ) -> Lesson {
+        use chrono::NaiveDate;
+        use untis::{Date, Time};
+
+        let date_parts: Vec<&str> = date_str.split('-').collect();
+        let year = date_parts[0].parse().unwrap();
+        let month = date_parts[1].parse().unwrap();
+        let day = date_parts[2].parse().unwrap();
+
+        Lesson {
+            id,
+            date: Date(NaiveDate::from_ymd_opt(year, month, day).unwrap()),
+            start_time: Time(chrono::NaiveTime::from_hms_opt(start_hour, 0, 0).unwrap()),
+            end_time: Time(chrono::NaiveTime::from_hms_opt(end_hour, 0, 0).unwrap()),
+            lesson_type: LessonType::Lesson,
+            code: LessonCode::Regular,
+            lsnumber: 1,
+            lstext: String::new(),
+            subst_text: None,
+            classes: vec![test_id_item(1, "VABO1")],
+            subjects: vec![test_id_item(10, subject)],
+            rooms: vec![test_id_item(100, room)],
+            teachers: vec![test_id_item(50, teacher)],
+            statflags: String::new(),
+            activity_type: "Unterricht".to_string(),
+        }
+    }
 
     #[tokio::test]
     #[ignore]
@@ -163,9 +230,23 @@ mod tests {
             m3.debug_ln(|msg| msg.push("Debug: new_lesson_id=888 kind=Added"));
             v.push(m3);
 
-            // Sample 4: Only debug (should show nothing in normal view)
-            let mut m4 = LabeledMessage::new();
-            m4.debug_ln(|msg| msg.push("Debug: orphan diff entry (sanity check)"));
+            // Sample 4: Changed lesson (from/to comparison)
+            let from_lesson =
+                test_lesson(12345, "2025-09-18", 10, 11, "Mathematics", "Smith", "101");
+
+            let to_lesson = test_lesson(
+                12345,
+                "2025-09-18",
+                10,
+                11,
+                "Mathematics",
+                "Johnson", // Teacher changed
+                "202",     // Room changed
+            );
+
+            let m4 = LessonChangeFormatter
+                .format_change(&from_lesson, &to_lesson)
+                .into_labeled_message();
             v.push(m4);
 
             v
@@ -174,7 +255,7 @@ mod tests {
         for (i, msg_part) in samples.iter().enumerate() {
             let mut msg = LabeledMessage::new();
             msg.push("Sample ");
-            msg.push_code_inline(format!("#{i}")).nl();
+            msg.push_code_inline(format!("#{}", i + 1)).nl();
             msg.push_bold("Normal view:").nl();
             msg.extend(msg_part.filter_normal()).nl().nl();
             msg.push_bold("Full view (with debug):").nl();

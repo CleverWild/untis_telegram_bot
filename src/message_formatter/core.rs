@@ -82,7 +82,7 @@ impl LessonMessage {
         }
 
         for (i, field) in self.fields.iter().enumerate() {
-            if i > 0 {
+            if i != 0 {
                 msg.nl();
             }
 
@@ -94,7 +94,7 @@ impl LessonMessage {
                 }
                 MessageField::Changed(diff) => {
                     if let Some(formatted) = diff.format() {
-                        msg.push(formatted);
+                        msg.extend(formatted);
                     }
                 }
             }
