@@ -3,7 +3,6 @@ use std::{convert::Infallible, time::Duration};
 use chrono::NaiveDate;
 use teloxide::{
     Bot,
-    payloads::EditMessageTextSetters as _,
     prelude::{ChatId, Request as _, Requester as _},
     types::MessageId,
 };
@@ -13,7 +12,7 @@ use tracing::Instrument;
 use crate::{
     DEBUG_TELEGRAM_CHAT, message,
     message_formatter::core::apply_debug_info,
-    utils::{next_friday, send_message},
+    utils::{edit_message, next_friday, send_message},
 };
 use crate::{IS_PROD, diff_impl::Diff};
 use crate::{message_formatter::format_message, utils::sort_diffs};
@@ -288,29 +287,12 @@ async fn update_status(
     let labeled_message = status_message.into_message();
 
     if let Some(message_id) = status_msg_id {
-        const MAX_RETRY_ATTEMPTS: u8 = 10;
-
-        for i in 1..=MAX_RETRY_ATTEMPTS {
-            match bot
-                .edit_message_text(status_chat.id, *message_id, labeled_message.to_string())
-                .parse_mode(teloxide::types::ParseMode::MarkdownV2)
-                .send()
-                .await
-            {
-                Ok(_) => return Ok(()),
-                Err(e) => {
-                    tracing::warn!(
-                        "Failed to edit status message (attempt {i}/{MAX_RETRY_ATTEMPTS}): {e}"
-                    );
-                    if i < MAX_RETRY_ATTEMPTS {
-                        tokio::time::sleep(Duration::from_millis(500)).await;
-                    }
-                }
-            }
+        if let Err(e) =
+            edit_message(bot, *status_chat, *message_id, labeled_message.to_string()).await
+        {
+            tracing::warn!("Failed to edit status message: {e}");
+            *status_msg_id = None;
         }
-
-        tracing::warn!("All edit attempts failed");
-        *status_msg_id = None;
     } else {
         tracing::warn!("Re-sending status message");
         let msg = send_message(bot, *status_chat, labeled_message.to_string()).await?;

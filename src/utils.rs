@@ -3,8 +3,10 @@ use std::time::Duration;
 use chrono::{Datelike, NaiveDate};
 use teloxide::{
     Bot,
-    payloads::SendMessageSetters as _,
+    payloads::{EditMessageTextSetters as _, SendMessageSetters as _},
     prelude::{Message, Request as _, Requester as _},
+    sugar::request::RequestLinkPreviewExt,
+    types::MessageId,
 };
 use tokio::time::Instant;
 
@@ -25,16 +27,17 @@ pub fn sort_diffs(diffs: &mut Vec<Diff>) {
     })
 }
 
-pub async fn send_message(bot: &Bot, chat: Chat, message: String) -> Result<Message, eyre::Report> {
+pub async fn send_message(bot: &Bot, chat: Chat, text: String) -> Result<Message, eyre::Report> {
     tracing::info!(
         "Sending to chat `{}` with topic `{:?}` message:\n{}",
         chat.id,
         chat.thread_id,
-        message
+        text
     );
 
     let mut req = bot
-        .send_message(chat.id, message)
+        .send_message(chat.id, text)
+        .disable_link_preview(true)
         .parse_mode(teloxide::types::ParseMode::MarkdownV2);
 
     if let Some(thread_id) = chat.thread_id {
@@ -44,6 +47,20 @@ pub async fn send_message(bot: &Bot, chat: Chat, message: String) -> Result<Mess
     }
 
     req.clone().send().await.map_err(|e| eyre::eyre!(e))
+}
+
+pub async fn edit_message(
+    bot: &Bot,
+    chat: Chat,
+    message_id: MessageId,
+    text: String,
+) -> Result<Message, eyre::Report> {
+    bot.edit_message_text(chat.id, message_id, text.clone())
+        .disable_link_preview(true)
+        .parse_mode(teloxide::types::ParseMode::MarkdownV2)
+        .send()
+        .await
+        .map_err(|e| eyre::eyre!(e))
 }
 
 pub fn align_next_minute() -> Instant {
