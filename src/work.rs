@@ -228,29 +228,39 @@ async fn update_status(
 ) -> Result<(), eyre::Report> {
     let TaskInfo { status_chat, .. } = entry;
 
+    let today = chrono::Local::now().date_naive();
+
     // Filter out expired homeworks based on timetable
-    // Check if the specific subject lesson occurred on or after the due_date
+    // Only filter homeworks that are due TODAY and the lesson has already passed
     let homeworks: Vec<_> = client
         .homeworks_data()
         .await?
         .into_homeworks()
         .into_iter()
         .filter(|hw| {
-            // Check if there's a lesson for this subject on or after the due_date
-            let subject_occurred_after_due = timetable.iter().any(|lesson| {
-                let is_same_subject = lesson
-                    .subjects
+            // Keep all future/past homeworks as-is
+            if hw.due_date.0 != today {
+                return true;
+            }
+
+            // For today's homeworks, check if the subject lesson already occurred
+            let subject_occurred_today =
+                timetable
                     .iter()
-                    .any(|subj| subj.name == hw.lesson.subject);
+                    .filter(|l| l.date.0 == today)
+                    .any(|lesson| {
+                        // Check if this lesson is for the same subject
+                        lesson
+                            .subjects
+                            .iter()
+                            .any(|subj| subj.name == hw.lesson.subject)
+                    });
 
-                is_same_subject && lesson.date >= hw.due_date
-            });
-
-            // Keep homework only if the subject lesson hasn't occurred yet after due_date
-            !subject_occurred_after_due
+            // Keep homework only if the subject lesson hasn't occurred today
+            !subject_occurred_today
         })
         .collect();
-    
+
     let status_message = crate::status::StatusMessage::new(homeworks, entry.uptime_since);
     let labeled_message = status_message.into_message();
 
