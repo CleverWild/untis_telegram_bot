@@ -27,7 +27,8 @@ pub struct Chat {
 }
 
 #[derive(Debug, Clone)]
-pub struct WhitelistEntry {
+pub struct TaskInfo {
+    pub uptime_since: Instant,
     pub notification_chat: Chat,
     pub status_chat: Chat,
     pub status_msg: Option<MessageId>,
@@ -39,8 +40,8 @@ pub struct WhitelistEntry {
 }
 
 #[tracing::instrument(skip_all, fields(%task = whitelist.task_name))]
-pub async fn working_loop(bot: Bot, whitelist: WhitelistEntry) -> Result<Infallible, eyre::Report> {
-    let WhitelistEntry {
+pub async fn working_loop(bot: Bot, whitelist: TaskInfo) -> Result<Infallible, eyre::Report> {
+    let TaskInfo {
         untis_school,
         untis_login,
         untis_password,
@@ -49,8 +50,6 @@ pub async fn working_loop(bot: Bot, whitelist: WhitelistEntry) -> Result<Infalli
         status_msg,
         ..
     } = &whitelist;
-
-    let uptime_since = Instant::now();
 
     let span = tracing::info_span!("preparation");
 
@@ -89,11 +88,19 @@ pub async fn working_loop(bot: Bot, whitelist: WhitelistEntry) -> Result<Infalli
 
         let start = tokio::time::Instant::now();
 
-        update_status(&bot, &mut client, &whitelist, &mut status_msg, uptime_since).await?;
-
         work(&bot, &mut client, &whitelist, &mut prev)
             .instrument(span.clone())
             .await?;
+
+        update_status(
+            &bot,
+            &mut client,
+            &whitelist,
+            &mut status_msg,
+            prev.as_ref()
+                .expect("Function 'work' above should set 'prev'"),
+        )
+        .await?;
 
         let json = serde_json::to_string_pretty(&prev).expect("Failed to serialize timetable");
         if let Err(e) = std::fs::write(TIMETABLE_FILE, json) {
@@ -120,10 +127,10 @@ pub async fn working_loop(bot: Bot, whitelist: WhitelistEntry) -> Result<Infalli
 async fn work(
     bot: &Bot,
     client: &mut untis::Client,
-    entry: &WhitelistEntry,
+    entry: &TaskInfo,
     prev: &mut Option<Vec<untis::Lesson>>,
 ) -> Result<(), eyre::Report> {
-    let WhitelistEntry {
+    let TaskInfo {
         notification_chat,
         target_class_name,
         ..
@@ -215,15 +222,36 @@ async fn work(
 async fn update_status(
     bot: &Bot,
     client: &mut untis::Client,
-    entry: &WhitelistEntry,
+    entry: &TaskInfo,
     status_msg_id: &mut Option<MessageId>,
-    uptime_since: Instant,
+    timetable: &[untis::Lesson],
 ) -> Result<(), eyre::Report> {
-    let WhitelistEntry { status_chat, .. } = entry;
+    let TaskInfo { status_chat, .. } = entry;
 
-    let homeworks = client.homeworks_data().await?.into_homeworks();
+    // Filter out expired homeworks based on timetable
+    // Check if the specific subject lesson occurred on or after the due_date
+    let homeworks: Vec<_> = client
+        .homeworks_data()
+        .await?
+        .into_homeworks()
+        .into_iter()
+        .filter(|hw| {
+            // Check if there's a lesson for this subject on or after the due_date
+            let subject_occurred_after_due = timetable.iter().any(|lesson| {
+                let is_same_subject = lesson
+                    .subjects
+                    .iter()
+                    .any(|subj| subj.name == hw.lesson.subject);
 
-    let status_message = crate::status::StatusMessage::new(homeworks, uptime_since);
+                is_same_subject && lesson.date >= hw.due_date
+            });
+
+            // Keep homework only if the subject lesson hasn't occurred yet after due_date
+            !subject_occurred_after_due
+        })
+        .collect();
+    
+    let status_message = crate::status::StatusMessage::new(homeworks, entry.uptime_since);
     let labeled_message = status_message.into_message();
 
     if let Some(message_id) = status_msg_id {

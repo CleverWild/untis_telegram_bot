@@ -5,7 +5,7 @@ use crate::{
     diff_impl::Diff,
     message::LabeledMessage,
     message_formatter::fields::{FIELD_SEPARATOR, Field, FieldDiff},
-    work::WhitelistEntry,
+    work::TaskInfo,
 };
 
 /// Primary entry point for formatting lesson difference messages
@@ -106,7 +106,7 @@ impl LessonMessage {
 
 pub fn apply_debug_info<'a>(
     message: &'a mut LabeledMessage,
-    _entry: &WhitelistEntry,
+    _entry: &TaskInfo,
     diff: &Diff,
 ) -> &'a mut LabeledMessage {
     // Add debug information to the message

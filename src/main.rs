@@ -1,5 +1,5 @@
 use teloxide::{Bot, prelude::ChatId, types::MessageId};
-use tokio::task::JoinSet;
+use tokio::{task::JoinSet, time::Instant};
 use tracing::level_filters::LevelFilter;
 
 mod diff_impl;
@@ -54,7 +54,7 @@ async fn main() {
 }
 
 pub struct BotService {
-    pub whitelist: Vec<work::WhitelistEntry>,
+    pub whitelist: Vec<work::TaskInfo>,
     pub token: String,
 }
 
@@ -79,7 +79,7 @@ impl BotService {
     }
 }
 
-fn make_whitelist() -> work::WhitelistEntry {
+fn make_whitelist() -> work::TaskInfo {
     // Load from environment variables with fallback to defaults
     let untis_school =
         std::env::var("UNTIS_SCHOOL").unwrap_or_else(|_| "KS-Waiblingen".to_string());
@@ -88,7 +88,8 @@ fn make_whitelist() -> work::WhitelistEntry {
         std::env::var("UNTIS_PASSWORD").unwrap_or_else(|_| "N6C4csN&^*a7vW".to_string());
 
     if IS_PROD {
-        work::WhitelistEntry {
+        work::TaskInfo {
+            uptime_since: Instant::now(),
             notification_chat: Chat {
                 // For supergroups/channels the real chat id = "-100" + <numeric from /c/>
                 id: ChatId(-1002951933538),
@@ -106,7 +107,8 @@ fn make_whitelist() -> work::WhitelistEntry {
             task_name: "VABO1".to_string(),
         }
     } else {
-        work::WhitelistEntry {
+        work::TaskInfo {
+            uptime_since: Instant::now(),
             notification_chat: DEBUG_TELEGRAM_CHAT,
             status_chat: DEBUG_TELEGRAM_CHAT,
             status_msg: None,
