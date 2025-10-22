@@ -70,6 +70,13 @@ impl LabeledMessage {
         self.push_raw(teloxide::utils::markdown::code_inline(text.as_ref()))
     }
 
+    pub fn push_link(&mut self, text: impl AsRef<str>, url: impl AsRef<str>) -> &mut Self {
+        self.push_raw(teloxide::utils::markdown::link(
+            text.as_ref(),
+            &escape(url.as_ref()),
+        ))
+    }
+
     pub fn enter_strikethrough<F>(&mut self, f: F) -> &mut Self
     where
         F: FnOnce(&mut Self) -> &mut Self,

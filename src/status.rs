@@ -6,6 +6,8 @@ use untis::{Date, Homework};
 
 use crate::message::LabeledMessage;
 
+const REPOSITORY_URL: &str = "https://github.com/CleverWild/untis_telegram_bot";
+
 #[derive(Debug, Clone)]
 pub struct StatusMessage {
     homeworks: Vec<Homework>,
@@ -31,10 +33,6 @@ impl StatusMessage {
 
     pub fn into_message(self) -> LabeledMessage {
         let mut msg = LabeledMessage::new();
-        // msg.push_bold("Status Message").nl();
-        // msg.push_normal("🛑 Please, do not send any messages to this chat.")
-        //     .nl()
-        //     .nl();
         msg.push_bold("Homework list:").nl();
 
         if self.homeworks.is_empty() {
@@ -75,6 +73,7 @@ impl StatusMessage {
             )
             .nl();
 
+        msg.push_link("(He keeps me in this basement full of care)", REPOSITORY_URL).nl();
         msg
     }
 }
