@@ -9,6 +9,7 @@ enum LabeledMessageInner {
     Normal(String),
     Debug(LabeledMessage),
     Strikethrough(LabeledMessage),
+    Spoiler(LabeledMessage),
 }
 
 impl Display for LabeledMessageInner {
@@ -24,6 +25,7 @@ impl Display for LabeledMessageInner {
                 )
             }
             Self::Strikethrough(msg) => write!(f, "~{}~", msg),
+            Self::Spoiler(msg) => write!(f, "||{}||", msg),
         }
     }
 }
@@ -81,10 +83,27 @@ impl LabeledMessage {
     where
         F: FnOnce(&mut Self) -> &mut Self,
     {
-        let mut tmp = Self::new();
-        f(&mut tmp);
-        self.0.push(LabeledMessageInner::Strikethrough(tmp));
+        self.0
+            .push(LabeledMessageInner::Strikethrough(Self::init_with(f)));
         self
+    }
+
+    pub fn enter_spoiler<F>(&mut self, f: F) -> &mut Self
+    where
+        F: FnOnce(&mut Self) -> &mut Self,
+    {
+        self.0
+            .push(LabeledMessageInner::Spoiler(Self::init_with(f)));
+        self
+    }
+
+    pub fn init_with<F>(f: F) -> Self
+    where
+        F: FnOnce(&mut Self) -> &mut Self,
+    {
+        let mut msg = Self::new();
+        f(&mut msg);
+        msg
     }
 
     pub fn extend(&mut self, other: Self) -> &mut Self {
@@ -111,6 +130,9 @@ impl LabeledMessage {
                     LabeledMessageInner::Debug(_) => None,
                     LabeledMessageInner::Strikethrough(msg) => {
                         Some(LabeledMessageInner::Strikethrough(msg.filter_normal()))
+                    }
+                    LabeledMessageInner::Spoiler(msg) => {
+                        Some(LabeledMessageInner::Spoiler(msg.filter_normal()))
                     }
                 })
                 .collect(),

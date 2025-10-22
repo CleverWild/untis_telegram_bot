@@ -73,7 +73,13 @@ impl StatusMessage {
             )
             .nl();
 
-        msg.push_link("(He keeps me in this basement full of care)", REPOSITORY_URL).nl();
+        msg.enter_spoiler(|msg| {
+            msg.push_link(
+                "(He keeps me in this basement full of care)",
+                REPOSITORY_URL,
+            )
+            .nl()
+        });
         msg
     }
 }
