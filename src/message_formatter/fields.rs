@@ -2,6 +2,8 @@
 
 use teloxide::utils::{html::code_inline, markdown::escape};
 
+use crate::message::LabeledMessage;
+
 /// Default buffer capacity for message formatting to avoid reallocations
 pub const DEFAULT_BUFFER_CAPACITY: usize = 512;
 
@@ -27,7 +29,7 @@ pub struct LessonField {
 pub enum FieldVisibility {
     /// Always show this field, even if empty
     Always,
-    /// Hide when not empty
+    /// Show when not empty
     NonEmpty,
     /// Show only when changed
     Changed,
@@ -145,35 +147,38 @@ impl FieldDiff {
     }
 
     /// Formats the field difference for display with MarkdownV2 escaping
-    pub fn format(&self) -> Option<String> {
+    pub fn format(&self) -> Option<LabeledMessage> {
+        let mut msg = LabeledMessage::new();
         if !self.has_changes() {
             if self.visibility != FieldVisibility::Changed && !self.from.is_empty() {
-                Some(format!(
-                    "{}{FIELD_SEPARATOR}{}",
-                    escape(self.name),
-                    escape(&self.from)
-                ))
+                msg.push(self.name).push(FIELD_SEPARATOR).push(&self.from);
+                Some(msg)
             } else {
                 None
             }
         } else {
             match (self.from.is_empty(), self.to.is_empty()) {
-                (true, false) => Some(format!(
-                    "Added {}{FIELD_SEPARATOR}{}",
-                    escape(self.name),
-                    code_inline(&self.to)
-                )),
-                (false, false) => Some(format!(
-                    "{}{FIELD_SEPARATOR}{}{CHANGES_SEPARATOR}{}",
-                    escape(self.name),
-                    code_inline(&self.from),
-                    code_inline(&self.to)
-                )),
-                (false, true) => Some(format!(
-                    "{}{FIELD_SEPARATOR}{}",
-                    escape(self.name),
-                    make_strikethrough(&self.from)
-                )),
+                (true, false) => {
+                    msg.push("Added ")
+                        .push(self.name)
+                        .push(FIELD_SEPARATOR)
+                        .push_code_inline(&self.to);
+                    Some(msg)
+                }
+                (false, false) => {
+                    msg.push(self.name)
+                        .push(FIELD_SEPARATOR)
+                        .push_code_inline(&self.from)
+                        .push(CHANGES_SEPARATOR)
+                        .push_code_inline(&self.to);
+                    Some(msg)
+                }
+                (false, true) => {
+                    msg.push(self.name)
+                        .push(FIELD_SEPARATOR)
+                        .enter_strikethrough(|msg| msg.push_code_inline(&self.from));
+                    Some(msg)
+                }
                 _ => {
                     tracing::warn!(
                         "Unexpected field diff state: from_value='{}', to_value='{}'",
@@ -201,13 +206,6 @@ impl FieldDiff {
     }
 }
 
-fn make_strikethrough(text: &str) -> String {
-    // Escape the text for MarkdownV2, then apply strikethrough
-    let escaped = escape(text);
-    // In MarkdownV2, strikethrough is done with ~text~
-    format!("~{escaped}~")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -221,7 +219,10 @@ mod tests {
             visibility: FieldVisibility::Always,
         };
         let formatted = diff.format();
-        assert_eq!(formatted.as_deref(), Some("Room: 101"));
+        assert_eq!(
+            formatted.map(|s| s.to_string()),
+            Some("Room: 101".to_string())
+        );
     }
 
     #[test]
@@ -243,7 +244,8 @@ mod tests {
             to: "Exam".into(),
             visibility: FieldVisibility::Changed,
         };
-        assert_eq!(diff.format().as_deref(), Some("Added Activity Type: <code>Exam</code>"));
+        let formatted = diff.format().map(|msg| msg.to_string());
+        assert_eq!(formatted.as_deref(), Some("Added Activity Type: `Exam`"));
     }
 
     #[test]
@@ -254,9 +256,10 @@ mod tests {
             to: "202".into(),
             visibility: FieldVisibility::Changed,
         };
+        let formatted = diff.format().map(|msg| msg.to_string());
         assert_eq!(
-            diff.format().as_deref(),
-            Some(format!("Room: <code>101</code>{CHANGES_SEPARATOR}<code>202</code>").as_str())
+            formatted.as_deref(),
+            Some(format!("Room: `101`{CHANGES_SEPARATOR}`202`").as_str())
         );
     }
 
@@ -269,7 +272,8 @@ mod tests {
             visibility: FieldVisibility::Changed,
         };
         // MarkdownV2 uses single tilde for strikethrough
-        assert_eq!(diff.format().as_deref(), Some("Teacher: ~Smith~"));
+        let formatted = diff.format().map(|msg| msg.to_string());
+        assert_eq!(formatted.as_deref(), Some("Teacher: ~`Smith`~"));
     }
 
     #[test]
