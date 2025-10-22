@@ -69,8 +69,23 @@ pub async fn working_loop(bot: Bot, whitelist: TaskInfo) -> Result<Infallible, e
         .await
         .unwrap();
 
-    let mut prev: Option<Vec<untis::Lesson>> = None;
     let mut status_msg: Option<MessageId> = *status_msg;
+    let mut prev: Option<Vec<untis::Lesson>> = match std::fs::read_to_string(TIMETABLE_FILE) {
+        Ok(content) => match serde_json::from_str::<Vec<_>>(&content) {
+            Ok(timetable) => {
+                tracing::info!(parent: &span, "Restored timetable from file with {} lessons", timetable.len());
+                Some(timetable)
+            }
+            Err(e) => {
+                tracing::warn!(parent: &span, "Failed to parse timetable from file: {e}");
+                None
+            }
+        },
+        Err(e) => {
+            tracing::info!(parent: &span, "No previous timetable file found: {e}");
+            None
+        }
+    };
 
     const DURATION: Duration = Duration::from_secs(60);
 
