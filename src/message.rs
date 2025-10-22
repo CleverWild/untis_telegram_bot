@@ -72,8 +72,8 @@ impl LabeledMessage {
 
     pub fn push_link(&mut self, text: impl AsRef<str>, url: impl AsRef<str>) -> &mut Self {
         self.push_raw(teloxide::utils::markdown::link(
-            text.as_ref(),
-            &escape(url.as_ref()),
+            url.as_ref(),
+            &escape(text.as_ref()),
         ))
     }
 
