@@ -250,10 +250,18 @@ async fn update_status(
                     .filter(|l| l.date.0 == today)
                     .any(|lesson| {
                         // Check if this lesson is for the same subject
-                        lesson
+                        let is_same_subject = lesson
                             .subjects
                             .iter()
-                            .any(|subj| subj.name == hw.lesson.subject)
+                            .any(|subj| subj.name == hw.lesson.subject);
+
+                        // Check if this lesson is taught by the same teacher
+                        let is_same_teacher = lesson
+                            .teachers
+                            .iter()
+                            .any(|teacher| teacher.name == hw.teacher.name);
+
+                        is_same_subject && is_same_teacher
                     });
 
             // Keep homework only if the subject lesson hasn't occurred today
