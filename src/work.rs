@@ -153,7 +153,7 @@ async fn work(
     tracing::info!("Fetching timetable");
 
     let date =
-        untis::Date(next_friday(chrono::Local::now().date_naive()) + chrono::Duration::days(7));
+        untis::Date(next_friday(chrono::Local::now().date_naive()) + chrono::Duration::days(14));
     let timetable = match target_class_name {
         Some(class_name) => {
             let classes = client.classes().await?;
@@ -208,6 +208,12 @@ async fn work(
 
             if IS_PROD {
                 // Send message to production target
+                tracing::info!(
+                    "Sending to chat `{}` with topic `{:?}` message:\n{}",
+                    notification_chat.id,
+                    notification_chat.thread_id,
+                    message
+                );
                 send_message(bot, *notification_chat, message.filter_normal().to_string()).await?;
             }
             // Send message to debug target
@@ -283,19 +289,19 @@ async fn update_status(
         })
         .collect();
 
-    let status_message = crate::status::StatusMessage::new(homeworks, entry.uptime_since);
-    let labeled_message = status_message.into_message();
+    let status_message =
+        crate::status::StatusMessage::new(homeworks, timetable, entry.uptime_since).into_message();
 
     if let Some(message_id) = status_msg_id {
         if let Err(e) =
-            edit_message(bot, *status_chat, *message_id, labeled_message.to_string()).await
+            edit_message(bot, *status_chat, *message_id, status_message.to_string()).await
         {
             tracing::warn!("Failed to edit status message: {e}");
             *status_msg_id = None;
         }
     } else {
         tracing::warn!("Re-sending status message");
-        let msg = send_message(bot, *status_chat, labeled_message.to_string()).await?;
+        let msg = send_message(bot, *status_chat, status_message.to_string()).await?;
         status_msg_id.replace(msg.id);
     }
 

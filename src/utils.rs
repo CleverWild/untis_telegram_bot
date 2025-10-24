@@ -28,13 +28,6 @@ pub fn sort_diffs(diffs: &mut Vec<Diff>) {
 }
 
 pub async fn send_message(bot: &Bot, chat: Chat, text: String) -> Result<Message, eyre::Report> {
-    tracing::info!(
-        "Sending to chat `{}` with topic `{:?}` message:\n{}",
-        chat.id,
-        chat.thread_id,
-        text
-    );
-
     let mut req = bot
         .send_message(chat.id, text)
         .disable_link_preview(true)

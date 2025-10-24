@@ -5,14 +5,14 @@ use teloxide::utils::markdown::escape;
 use crate::IS_PROD;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum LabeledMessageInner {
+enum Labeled {
     Normal(String),
     Debug(LabeledMessage),
     Strikethrough(LabeledMessage),
     Spoiler(LabeledMessage),
 }
 
-impl Display for LabeledMessageInner {
+impl Display for Labeled {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Normal(text) => write!(f, "{text}"),
@@ -31,7 +31,7 @@ impl Display for LabeledMessageInner {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct LabeledMessage(Vec<LabeledMessageInner>);
+pub struct LabeledMessage(Vec<Labeled>);
 #[allow(deprecated)]
 impl LabeledMessage {
     pub fn new() -> Self {
@@ -40,7 +40,7 @@ impl LabeledMessage {
 
     #[deprecated(note = "Try to avoid using this method")]
     pub fn push_raw(&mut self, text: impl ToString) -> &mut Self {
-        self.0.push(LabeledMessageInner::Normal(text.to_string()));
+        self.0.push(Labeled::Normal(text.to_string()));
         self
     }
 
@@ -83,8 +83,7 @@ impl LabeledMessage {
     where
         F: FnOnce(&mut Self) -> &mut Self,
     {
-        self.0
-            .push(LabeledMessageInner::Strikethrough(Self::init_with(f)));
+        self.0.push(Labeled::Strikethrough(Self::init_with(f)));
         self
     }
 
@@ -92,8 +91,7 @@ impl LabeledMessage {
     where
         F: FnOnce(&mut Self) -> &mut Self,
     {
-        self.0
-            .push(LabeledMessageInner::Spoiler(Self::init_with(f)));
+        self.0.push(Labeled::Spoiler(Self::init_with(f)));
         self
     }
 
@@ -118,7 +116,7 @@ impl LabeledMessage {
         let mut tmp = Self::new();
         f(&mut tmp);
 
-        self.nl().0.push(LabeledMessageInner::Debug(tmp));
+        self.nl().0.push(Labeled::Debug(tmp));
     }
 
     pub fn filter_normal(&self) -> Self {
@@ -126,14 +124,12 @@ impl LabeledMessage {
             self.0
                 .iter()
                 .filter_map(|s| match s {
-                    LabeledMessageInner::Normal(_) => Some(s.clone()),
-                    LabeledMessageInner::Debug(_) => None,
-                    LabeledMessageInner::Strikethrough(msg) => {
-                        Some(LabeledMessageInner::Strikethrough(msg.filter_normal()))
+                    Labeled::Normal(_) => Some(s.clone()),
+                    Labeled::Debug(_) => None,
+                    Labeled::Strikethrough(msg) => {
+                        Some(Labeled::Strikethrough(msg.filter_normal()))
                     }
-                    LabeledMessageInner::Spoiler(msg) => {
-                        Some(LabeledMessageInner::Spoiler(msg.filter_normal()))
-                    }
+                    Labeled::Spoiler(msg) => Some(Labeled::Spoiler(msg.filter_normal())),
                 })
                 .collect(),
         )
