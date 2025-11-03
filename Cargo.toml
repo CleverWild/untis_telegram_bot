@@ -6,6 +6,7 @@ version = "0.1.5"
 [dependencies]
 chrono = { workspace = true }
 config = { workspace = true }
+db = { workspace = true }
 eyre.workspace = true
 impl-tools.workspace = true
 serde = { workspace = true }
@@ -19,11 +20,12 @@ tracing-subscriber = { workspace = true }
 untis = { path = "untis" }
 
 [workspace]
-members = ["untis"]
+members = ["db", "untis"]
 
 [workspace.dependencies]
-chrono = "0.4.42"
+chrono = { version = "0.4.42", features = ["serde"] }
 config = "0.15.18"
+db = { path = "db" }
 eyre = "0.6.12"
 impl-tools = "0.11.4"
 reqwest = { version = "0.12.24", features = ["cookies", "hickory-dns", "json"] }
@@ -35,3 +37,4 @@ thiserror = "2.0.17"
 tokio = { version = "1.48.0" }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+paste = "1.0.15"

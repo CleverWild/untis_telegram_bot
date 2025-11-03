@@ -1,8 +1,7 @@
 use std::time::Duration;
 
-use chrono::{FixedOffset, Local, NaiveTime, Utc};
-use tokio::time::Instant;
-use untis::{Homework, Lesson};
+use chrono::{DateTime, FixedOffset, Local, NaiveTime, Utc};
+use untis::Homework;
 
 use crate::message::LabeledMessage;
 
@@ -12,17 +11,21 @@ const REPOSITORY_URL: &str = "https://github.com/CleverWild/untis_telegram_bot";
 pub struct StatusMessage {
     homeworks: Vec<Homework>,
     current_or_next_lesson: Option<NearestLesson>,
-    timestamp: Instant,
+    timestamp: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone)]
 enum NearestLesson {
-    Current(Lesson),
-    Next(Lesson),
+    Current(db::models::Lesson),
+    Next(db::models::Lesson),
 }
 
 impl StatusMessage {
-    pub fn new(homeworks: Vec<Homework>, timetable: &[Lesson], uptime_since: Instant) -> Self {
+    pub fn new(
+        homeworks: Vec<Homework>,
+        timetable: &[db::models::Lesson],
+        uptime_since: DateTime<Utc>,
+    ) -> Self {
         let sorted_hw = {
             let mut hw = homeworks
                 .iter()
@@ -86,7 +89,9 @@ impl StatusMessage {
         }
 
         // Added uptime calculation (days:hours:minutes)
-        let elapsed = self.timestamp.elapsed();
+        let elapsed = (Utc::now() - self.timestamp)
+            .to_std()
+            .unwrap_or(Duration::from_secs(0));
         msg.push("Uptime:  ")
             .push_code_inline(into_uptime(elapsed))
             .nl();
@@ -138,7 +143,7 @@ fn into_uptime(d: Duration) -> String {
 }
 
 /// Find the current lesson (if ongoing) or the next upcoming lesson
-fn find_nearest_lesson(timetable: &[Lesson]) -> Option<NearestLesson> {
+fn find_nearest_lesson(timetable: &[db::models::Lesson]) -> Option<NearestLesson> {
     use chrono::Timelike;
 
     let now = Local::now();
@@ -147,9 +152,9 @@ fn find_nearest_lesson(timetable: &[Lesson]) -> Option<NearestLesson> {
 
     // First, check if there's a current lesson (today, ongoing)
     for lesson in timetable {
-        if lesson.date.0 == today
-            && lesson.start_time.0 <= current_time
-            && current_time < lesson.end_time.0
+        if lesson.date == today
+            && lesson.start_time <= current_time
+            && current_time < lesson.end_time
         {
             return Some(NearestLesson::Current(lesson.clone()));
         }
@@ -159,7 +164,7 @@ fn find_nearest_lesson(timetable: &[Lesson]) -> Option<NearestLesson> {
     let mut future_lessons: Vec<_> = timetable
         .iter()
         .filter(|lesson| {
-            lesson.date.0 > today || (lesson.date.0 == today && lesson.start_time.0 > current_time)
+            lesson.date > today || (lesson.date == today && lesson.start_time > current_time)
         })
         .collect();
 
@@ -171,21 +176,21 @@ fn find_nearest_lesson(timetable: &[Lesson]) -> Option<NearestLesson> {
 }
 
 /// Format a lesson for display in status message
-fn format_lesson(msg: &mut LabeledMessage, lesson: &Lesson) {
+fn format_lesson(msg: &mut LabeledMessage, lesson: &db::models::Lesson) {
     // Subject
-    let subjects: Vec<_> = lesson.subjects.iter().map(|s| s.name.as_str()).collect();
+    let subjects: Vec<_> = lesson.subjects.iter().map(|s| s.as_str()).collect();
     msg.push("  Subject: ")
         .push_code_inline(subjects.join(", "));
 
     // Teacher
-    let teachers: Vec<_> = lesson.teachers.iter().map(|t| t.name.as_str()).collect();
+    let teachers: Vec<_> = lesson.teachers.iter().map(|t| t.as_str()).collect();
     if !teachers.is_empty() {
         msg.push(", Teacher: ")
             .push_code_inline(teachers.join(", "));
     }
 
     // Room
-    let rooms: Vec<_> = lesson.rooms.iter().map(|r| r.name.as_str()).collect();
+    let rooms: Vec<_> = lesson.rooms.iter().map(|r| r.as_str()).collect();
     if !rooms.is_empty() {
         msg.push(", Room: ").push_code_inline(rooms.join(", "));
     }
@@ -194,13 +199,13 @@ fn format_lesson(msg: &mut LabeledMessage, lesson: &Lesson) {
     // Time
     msg.push("  Time: ").push_code_inline(format!(
         "{} - {}",
-        lesson.start_time.0.format("%H:%M"),
-        lesson.end_time.0.format("%H:%M")
+        lesson.start_time.format("%H:%M"),
+        lesson.end_time.format("%H:%M")
     ));
     // Date (if not today)
-    if lesson.date.0 != Local::now().date_naive() {
+    if lesson.date != Local::now().date_naive() {
         msg.push("   ")
-            .push_code_inline(lesson.date.0.format("%a %d/%m/%y").to_string());
+            .push_code_inline(lesson.date.format("%a %d/%m/%y").to_string());
     }
     msg.nl();
 }

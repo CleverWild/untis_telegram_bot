@@ -3,3 +3,4 @@ Secrets.toml.shuttle*
 Secrets*.toml
 .shuttle*
 timetable.json
+copilot-instruction.md

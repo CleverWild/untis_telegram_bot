@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS lessons;
+DROP TABLE IF EXISTS bot_states;

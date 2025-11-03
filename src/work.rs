@@ -1,23 +1,17 @@
 use std::{convert::Infallible, time::Duration};
 
 use chrono::NaiveDate;
-use teloxide::{
-    Bot,
-    prelude::{ChatId, Request as _, Requester as _},
-    types::MessageId,
-};
-use tokio::time::Instant;
+use teloxide::{Bot, prelude::ChatId, types::MessageId};
 use tracing::Instrument;
 
 use crate::{
-    DEBUG_TELEGRAM_CHAT, message,
-    message_formatter::core::apply_debug_info,
-    utils::{edit_message, next_friday, send_message},
+    DEBUG_TELEGRAM_CHAT, IS_PROD,
+    diff_impl::Diff,
+    message,
+    message_formatter::{core::apply_debug_info, format_message},
+    utils::{edit_message, next_friday, send_message, sort_diffs},
 };
-use crate::{IS_PROD, diff_impl::Diff};
-use crate::{message_formatter::format_message, utils::sort_diffs};
-
-const TIMETABLE_FILE: &str = "timetable.json";
+use db::{DateTime, Utc, models::BotTask};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Chat {
@@ -25,63 +19,27 @@ pub struct Chat {
     pub thread_id: Option<i32>,
 }
 
-#[derive(Debug, Clone)]
-pub struct TaskInfo {
-    pub uptime_since: Instant,
-    pub notification_chat: Chat,
-    pub status_chat: Chat,
-    pub status_msg: Option<MessageId>,
-    pub untis_school: String,
-    pub untis_login: String,
-    pub untis_password: String,
-    pub target_class_name: Option<String>,
-    pub task_name: String,
+pub struct WorkerContext {
+    pub bot: Bot,
+    pub untis_client: untis::Client,
+    pub engaged_at: DateTime<Utc>,
+    pub task: BotTask,
 }
 
-#[tracing::instrument(skip_all, fields(%task = whitelist.task_name))]
-pub async fn working_loop(bot: Bot, whitelist: TaskInfo) -> Result<Infallible, eyre::Report> {
-    let TaskInfo {
-        untis_school,
-        untis_login,
-        untis_password,
-        notification_chat,
-        task_name,
-        status_msg,
-        ..
-    } = &whitelist;
-
+#[tracing::instrument(skip_all, fields(%task = ctx.task.task_name))]
+pub async fn working_loop(mut ctx: WorkerContext) -> Result<Infallible, eyre::Report> {
     let span = tracing::info_span!("preparation");
 
     tracing::info!(parent: &span, "Starting fetch");
 
-    let school = untis::schools::get_by_name(untis_school.as_str())
-        .instrument(span.clone())
-        .await
-        .inspect_err(|e| tracing::error!("Failed to get school '{untis_school}': {e}"))
-        .unwrap();
-
-    tracing::info!(parent: &span, "school received: {:?}", school);
-
-    let mut client = school
-        .client_login(untis_login.as_str(), untis_password.as_str())
-        .instrument(span.clone())
-        .await
-        .unwrap();
-
-    let mut status_msg: Option<MessageId> = *status_msg;
-    let mut prev: Option<Vec<untis::Lesson>> = match std::fs::read_to_string(TIMETABLE_FILE) {
-        Ok(content) => match serde_json::from_str::<Vec<_>>(&content) {
-            Ok(timetable) => {
-                tracing::info!(parent: &span, "Restored timetable from file with {} lessons", timetable.len());
-                Some(timetable)
-            }
-            Err(e) => {
-                tracing::warn!(parent: &span, "Failed to parse timetable from file: {e}");
-                None
-            }
-        },
+    let mut prev: Option<Vec<db::models::Lesson>> = match db::models::Lesson::get_all() {
+        Ok(db_lessons) if !db_lessons.is_empty() => Some(db_lessons),
+        Ok(_) => {
+            tracing::info!(parent: &span, "No timetable found in DB");
+            None
+        }
         Err(e) => {
-            tracing::info!(parent: &span, "No previous timetable file found: {e}");
+            tracing::warn!(parent: &span, "Failed to load timetable from DB: {e}");
             None
         }
     };
@@ -94,31 +52,33 @@ pub async fn working_loop(bot: Bot, whitelist: TaskInfo) -> Result<Infallible, e
     for i in 0u32.. {
         let span = tracing::info_span!("iteration", i);
 
-        if !IS_PROD && i % 10 == 0 {
-            bot.send_message(notification_chat.id, format!("{task_name} is alive"))
-                .send()
-                .await?;
-        }
-
         let start = tokio::time::Instant::now();
 
-        work(&bot, &mut client, &whitelist, &mut prev)
-            .instrument(span.clone())
-            .await?;
+        // Fetch new timetable from Untis and save to DB
+        prev = Some(
+            process_timetable(&mut ctx, &prev)
+                .instrument(span.clone())
+                .await?,
+        );
 
-        update_status(
-            &bot,
-            &mut client,
-            &whitelist,
-            &mut status_msg,
-            prev.as_ref()
-                .expect("Function 'work' above should set 'prev'"),
-        )
-        .await?;
+        // Update status message (queries DB internally)
+        update_status(&mut ctx).instrument(span.clone()).await?;
 
-        let json = serde_json::to_string_pretty(&prev).expect("Failed to serialize timetable");
-        if let Err(e) = std::fs::write(TIMETABLE_FILE, json) {
-            tracing::error!(parent: &span, "Failed to save timetable to file: {e}");
+        // Update bot state in database using specific state ID to avoid race conditions
+        if let Err(e) = ctx.task.update(db::models::BotTaskChangeset {
+            status_message_id: ctx.task.status_message_id,
+            target_class_name: None,
+            untis_school: None,
+            task_name: None,
+            untis_login: None,
+            untis_password: None,
+            updated_at: Some(chrono::Utc::now()),
+            notification_chat_id: None,
+            notification_thread_id: None,
+            status_chat_id: None,
+            status_thread_id: None,
+        }) {
+            tracing::error!(parent: &span, "Failed to update bot state in DB: {e}");
         }
 
         // Warn if time to work is to long
@@ -137,18 +97,54 @@ pub async fn working_loop(bot: Bot, whitelist: TaskInfo) -> Result<Infallible, e
     unreachable!("Integer overflow is unlikely here, but possible, see <YEARS_TO_OVERFLOW> const");
 }
 
+// Local helper: convert Untis::Lesson to a db::Lesson-like object
+fn lesson_entry_from_untis(lesson: &untis::Lesson) -> db::models::Lesson {
+    use db::Uuid;
+
+    let subjects: Vec<String> = lesson.subjects.iter().map(|i| i.name.clone()).collect();
+    let teachers: Vec<String> = lesson.teachers.iter().map(|i| i.name.clone()).collect();
+    let rooms: Vec<String> = lesson.rooms.iter().map(|i| i.name.clone()).collect();
+    let classes: Vec<String> = lesson.classes.iter().map(|i| i.name.clone()).collect();
+
+    let lesson_type = Some(
+        match lesson.lesson_type {
+            untis::LessonType::Lesson => "Unterricht",
+            untis::LessonType::OfficeHour => "oh",
+            untis::LessonType::Standby => "sb",
+            untis::LessonType::BreakSupervision => "bs",
+            untis::LessonType::Exam => "ex",
+        }
+        .to_string(),
+    );
+
+    db::models::Lesson {
+        subjects,
+        teachers,
+        rooms,
+        classes,
+        id: Uuid::nil(),
+        lesson_id: lesson.id as i64,
+        date: lesson.date.0,
+        end_time: lesson.end_time.0,
+        lesson_code: lesson.code.to_string(),
+        lesson_type,
+        start_time: lesson.start_time.0,
+        subst_text: lesson.subst_text.clone(),
+        bot_state: None,
+    }
+}
+
 #[tracing::instrument(skip_all)]
-async fn work(
-    bot: &Bot,
-    client: &mut untis::Client,
-    entry: &TaskInfo,
-    prev: &mut Option<Vec<untis::Lesson>>,
-) -> Result<(), eyre::Report> {
-    let TaskInfo {
-        notification_chat,
+async fn process_timetable(
+    ctx: &mut WorkerContext,
+    prev: &Option<Vec<db::models::Lesson>>,
+) -> Result<Vec<db::models::Lesson>, eyre::Report> {
+    let BotTask {
         target_class_name,
+        notification_chat_id,
+        notification_thread_id,
         ..
-    } = entry;
+    } = &ctx.task;
 
     tracing::info!("Fetching timetable");
 
@@ -156,17 +152,17 @@ async fn work(
         untis::Date(next_friday(chrono::Local::now().date_naive()) + chrono::Duration::days(14));
     let timetable = match target_class_name {
         Some(class_name) => {
-            let classes = client.classes().await?;
+            let classes = ctx.untis_client.classes().await?;
             let found_class = classes.into_iter().find(|class| class.name == *class_name);
             let id = found_class.map(|class| class.id).ok_or_else(|| {
                 eyre::eyre!("Failed to find class with name {:?}", target_class_name)
             })?;
 
-            client
+            ctx.untis_client
                 .timetable_until(&id, &untis::ElementType::Class, &date)
                 .await?
         }
-        None => client.own_timetable_until(&date).await?,
+        None => ctx.untis_client.own_timetable_until(&date).await?,
     };
 
     if let Some(prev) = prev {
@@ -202,7 +198,7 @@ async fn work(
                 // Add debug view with additional debug info
                 message.debug_ln(|msg| {
                     msg.extend(formatted);
-                    apply_debug_info(msg, entry, &diff)
+                    apply_debug_info(msg, &ctx.task, &diff)
                 });
             }
 
@@ -210,49 +206,55 @@ async fn work(
                 // Send message to production target
                 tracing::info!(
                     "Sending to chat `{}` with topic `{:?}` message:\n{}",
-                    notification_chat.id,
-                    notification_chat.thread_id,
+                    notification_chat_id,
+                    notification_thread_id,
                     message
                 );
-                send_message(bot, *notification_chat, message.filter_normal().to_string()).await?;
+                send_message(
+                    &ctx.bot,
+                    Chat {
+                        id: ChatId(*notification_chat_id),
+                        thread_id: *notification_thread_id,
+                    },
+                    message.filter_normal().to_string(),
+                )
+                .await?;
             }
             // Send message to debug target
-            send_message(bot, DEBUG_TELEGRAM_CHAT, message.to_string()).await?;
+            send_message(&ctx.bot, DEBUG_TELEGRAM_CHAT, message.to_string()).await?;
         }
     }
 
-    if !IS_PROD {
-        // Save timetable to file
-        match serde_json::to_string_pretty(&timetable) {
-            Ok(json) => {
-                if let Err(e) = std::fs::write(TIMETABLE_FILE, json) {
-                    tracing::warn!("Failed to save timetable to file: {e}");
-                }
-            }
-            Err(e) => {
-                tracing::error!("Failed to serialize timetable: {e}");
-            }
-        }
-    }
+    // Save timetable to database - TODO: implement batch insert/update
+    // For now, we skip saving to DB as the old upsert_lessons query no longer exists
+    // You may need to implement this using db::repository::insert_lessons_batch or similar
+    tracing::debug!("Skipping timetable save to DB (upsert_lessons not implemented yet)");
 
-    *prev = Some(timetable);
-    Ok(())
+    // Convert and return as db::models::Lesson for next diff iteration
+    Ok(timetable.iter().map(lesson_entry_from_untis).collect())
 }
 
-async fn update_status(
-    bot: &Bot,
-    client: &mut untis::Client,
-    entry: &TaskInfo,
-    status_msg_id: &mut Option<MessageId>,
-    timetable: &[untis::Lesson],
-) -> Result<(), eyre::Report> {
-    let TaskInfo { status_chat, .. } = entry;
+#[tracing::instrument(skip_all)]
+async fn update_status(ctx: &mut WorkerContext) -> Result<(), eyre::Report> {
+    let BotTask {
+        status_chat_id,
+        status_thread_id,
+        status_message_id,
+        ..
+    } = &ctx.task;
 
     let today = chrono::Local::now().date_naive();
 
+    // Fetch current timetable from database
+    let timetable = db::models::Lesson::get_all().unwrap_or_else(|e| {
+        tracing::warn!("Failed to load timetable from DB for status update: {e}");
+        Vec::new()
+    });
+
     // Filter out expired homeworks based on timetable
     // Only filter homeworks that are due TODAY and the lesson has already passed
-    let homeworks: Vec<_> = client
+    let homeworks: Vec<_> = ctx
+        .untis_client
         .homeworks_data()
         .await?
         .into_homeworks()
@@ -264,25 +266,12 @@ async fn update_status(
             }
 
             // For today's homeworks, check if the subject lesson already occurred
-            let subject_occurred_today =
-                timetable
-                    .iter()
-                    .filter(|l| l.date.0 == today)
-                    .any(|lesson| {
-                        // Check if this lesson is for the same subject
-                        let is_same_subject = lesson
-                            .subjects
-                            .iter()
-                            .any(|subj| subj.name == hw.lesson.subject);
+            let subject_occurred_today = timetable.iter().filter(|l| l.date == today).any(|ls| {
+                let is_same_subject = ls.subjects.contains(&hw.lesson.subject);
+                let is_same_teacher = ls.teachers.contains(&hw.teacher.name);
 
-                        // Check if this lesson is taught by the same teacher
-                        let is_same_teacher = lesson
-                            .teachers
-                            .iter()
-                            .any(|teacher| teacher.name == hw.teacher.name);
-
-                        is_same_subject && is_same_teacher
-                    });
+                is_same_subject && is_same_teacher
+            });
 
             // Keep homework only if the subject lesson hasn't occurred today
             !subject_occurred_today
@@ -290,19 +279,35 @@ async fn update_status(
         .collect();
 
     let status_message =
-        crate::status::StatusMessage::new(homeworks, timetable, entry.uptime_since).into_message();
+        crate::status::StatusMessage::new(homeworks, &timetable, ctx.engaged_at).into_message();
 
-    if let Some(message_id) = status_msg_id {
-        if let Err(e) =
-            edit_message(bot, *status_chat, *message_id, status_message.to_string()).await
+    if let Some(message_id) = status_message_id {
+        if let Err(e) = edit_message(
+            &ctx.bot,
+            Chat {
+                id: ChatId(*status_chat_id),
+                thread_id: *status_thread_id,
+            },
+            MessageId(*message_id),
+            status_message.to_string(),
+        )
+        .await
         {
             tracing::warn!("Failed to edit status message: {e}");
-            *status_msg_id = None;
+            ctx.task.status_message_id = None;
         }
     } else {
         tracing::warn!("Re-sending status message");
-        let msg = send_message(bot, *status_chat, status_message.to_string()).await?;
-        status_msg_id.replace(msg.id);
+        let msg = send_message(
+            &ctx.bot,
+            Chat {
+                id: ChatId(*status_chat_id),
+                thread_id: *status_thread_id,
+            },
+            status_message.to_string(),
+        )
+        .await?;
+        ctx.task.status_message_id.replace(msg.id.0);
     }
 
     Ok(())

@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use teloxide::utils::markdown::escape;
 
-use crate::IS_PROD;
+// IS_PROD is not required in this module
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Labeled {
@@ -138,17 +138,11 @@ impl LabeledMessage {
 
 impl Display for LabeledMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let display: String = if IS_PROD {
-            self.filter_normal()
-                .0
-                .iter()
-                .map(|s| s.to_string())
-                .collect()
-        } else {
-            self.0.iter().map(|s| s.to_string()).collect()
-        };
-
-        write!(f, "{display}")
+        write!(
+            f,
+            "{}",
+            self.0.iter().map(|s| s.to_string()).collect::<String>()
+        )
     }
 }
 
@@ -256,8 +250,15 @@ mod tests {
             v.push(m3);
 
             // Sample 4: Changed lesson (from/to comparison)
-            let from_lesson =
-                test_lesson(12345, "2025-09-18", 10, 11, "Mathematics", "Smith", "101");
+            let from_lesson = convert_to_db_entry(&test_lesson(
+                12345,
+                "2025-09-18",
+                10,
+                11,
+                "Mathematics",
+                "Smith",
+                "101",
+            ));
 
             let to_lesson = test_lesson(
                 12345,
@@ -292,6 +293,45 @@ mod tests {
             }
             // Small delay to avoid hitting flood limits.
             // tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+    }
+
+    fn convert_to_db_entry(lesson: &untis::Lesson) -> db::models::Lesson {
+        use db::Uuid;
+
+        let subjects = lesson.subjects.iter().map(|i| i.name.clone()).collect();
+
+        let teachers = lesson.teachers.iter().map(|i| i.name.clone()).collect();
+
+        let rooms = lesson.rooms.iter().map(|i| i.name.clone()).collect();
+
+        let classes = lesson.classes.iter().map(|i| i.name.clone()).collect();
+
+        let lesson_type = Some(
+            match lesson.lesson_type {
+                untis::LessonType::Lesson => "Unterricht",
+                untis::LessonType::OfficeHour => "oh",
+                untis::LessonType::Standby => "sb",
+                untis::LessonType::BreakSupervision => "bs",
+                untis::LessonType::Exam => "ex",
+            }
+            .to_string(),
+        );
+
+        db::models::Lesson {
+            subjects,
+            teachers,
+            rooms,
+            classes,
+            id: Uuid::new_v4(),
+            lesson_id: lesson.id as i64,
+            date: lesson.date.0,
+            end_time: lesson.end_time.0,
+            lesson_code: lesson.code.to_string(),
+            lesson_type,
+            start_time: lesson.start_time.0,
+            subst_text: lesson.subst_text.clone(),
+            bot_state: None,
         }
     }
 }

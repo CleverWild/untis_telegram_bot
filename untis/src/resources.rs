@@ -501,12 +501,15 @@ impl HomeworksData {
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct Homework {
     pub id: usize,
-    pub date: Date,
-    pub due_date: Date,
-    pub is_completed: bool,
+
     pub remark: String,
     pub text: String,
     pub lesson: HomeworkLesson,
+
+    pub date: Date,
+    pub due_date: Date,
+
+    pub is_completed: bool,
     pub teacher: TeacherBase,
 }
 
@@ -534,26 +537,21 @@ impl fmt::Display for LessonCode {
 }
 
 /// Represents the type of lesson.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Hash, Debug, Serialize)]
+#[derive(
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Hash, Debug, Serialize, Deserialize,
+)]
 pub enum LessonType {
     #[default]
+    #[serde(rename = "Unterricht")]
     Lesson,
+    #[serde(rename = "oh")]
     OfficeHour,
+    #[serde(rename = "sb")]
     Standby,
+    #[serde(rename = "bs")]
     BreakSupervision,
+    #[serde(rename = "ex")]
     Exam,
-}
-
-impl<'de> Deserialize<'de> for LessonType {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        Ok(match String::deserialize(deserializer)?.as_str() {
-            "oh" => LessonType::OfficeHour,
-            "sb" => LessonType::Standby,
-            "bs" => LessonType::BreakSupervision,
-            "ex" => LessonType::Exam,
-            _ => LessonType::Lesson,
-        })
-    }
 }
 
 /// Represents an element that is part of a lesson.
@@ -574,11 +572,28 @@ pub struct IdItem {
     pub orig_name: Option<String>,
 }
 
+impl IdItem {
+    const DEFAULT_ID: isize = -1;
+
+    pub fn has_id(&self) -> bool {
+        self.id != Self::DEFAULT_ID
+    }
+
+    pub const fn from_name(name: String) -> Self {
+        IdItem {
+            id: Self::DEFAULT_ID,
+            name,
+            orig_id: None,
+            orig_name: None,
+        }
+    }
+}
+
 impl Default for IdItem {
     fn default() -> Self {
         tracing::warn!("Using default IdItem");
         IdItem {
-            id: -1,
+            id: Self::DEFAULT_ID,
             name: String::new(),
             orig_id: None,
             orig_name: None,

@@ -1,7 +1,5 @@
 //! Field system for extracting and formatting lesson data
 
-use teloxide::utils::{html::code_inline, markdown::escape};
-
 use crate::message::LabeledMessage;
 
 /// Default buffer capacity for message formatting to avoid reallocations
@@ -11,7 +9,7 @@ pub const FIELD_SEPARATOR: &str = ": ";
 pub const CHANGES_SEPARATOR: &str = " → ";
 
 /// Type alias for field extraction functions
-pub type FieldExtractor = fn(&untis::Lesson) -> String;
+pub type FieldExtractor = fn(&db::models::Lesson) -> String;
 
 /// Represents a lesson field that can be extracted and formatted
 #[derive(Clone)]
@@ -64,7 +62,7 @@ impl LessonField {
     }
 
     /// Extracts the field value from a lesson
-    pub fn extract(&self, lesson: &untis::Lesson) -> String {
+    pub fn extract(&self, lesson: &db::models::Lesson) -> String {
         (self.extractor)(lesson)
     }
 }
@@ -74,28 +72,17 @@ pub struct FieldRegistry;
 
 impl FieldRegistry {
     /// Returns all standard lesson fields
-    pub const fn standard_fields() -> [LessonField; 7] {
+    pub const fn standard_fields() -> [LessonField; 6] {
         [
             LessonField::required("Subject", |l| {
                 l.subjects
                     .first()
-                    .map_or(String::new(), |subject| subject.name.clone())
+                    .map_or(String::new(), |subject| subject.clone())
             }),
             LessonField::required("Time", |l| format!("{} - {}", l.start_time, l.end_time)),
-            LessonField::required("Teacher", |l| {
-                l.teachers
-                    .iter()
-                    .map(|teacher| teacher.name.clone())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            }),
-            LessonField::required("Room", |l| {
-                l.rooms
-                    .first()
-                    .map_or(String::new(), |room| room.name.clone())
-            }),
-            LessonField::required("Status", |l| l.code.to_string()),
-            LessonField::only_changed("Activity Type", |l| l.activity_type.clone()),
+            LessonField::required("Teacher", |l| l.teachers.to_vec().join(", ")),
+            LessonField::required("Room", |l| l.rooms.to_vec().join(", ")),
+            LessonField::required("Status", |l| l.lesson_code.clone()),
             LessonField::only_changed("Additional Info", |l| {
                 l.subst_text.clone().unwrap_or_default()
             }),
@@ -191,19 +178,19 @@ impl FieldDiff {
         }
     }
 
-    pub fn field_from(&self) -> Field {
-        Field {
-            name: self.name,
-            value: self.from.clone(),
-        }
-    }
+    // pub fn field_from(&self) -> Field {
+    //     Field {
+    //         name: self.name,
+    //         value: self.from.clone(),
+    //     }
+    // }
 
-    pub fn field_to(&self) -> Field {
-        Field {
-            name: self.name,
-            value: self.to.clone(),
-        }
-    }
+    // pub fn field_to(&self) -> Field {
+    //     Field {
+    //         name: self.name,
+    //         value: self.to.clone(),
+    //     }
+    // }
 }
 
 #[cfg(test)]

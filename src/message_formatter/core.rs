@@ -5,7 +5,6 @@ use crate::{
     diff_impl::Diff,
     message::LabeledMessage,
     message_formatter::fields::{FIELD_SEPARATOR, Field, FieldDiff},
-    work::TaskInfo,
 };
 
 /// Primary entry point for formatting lesson difference messages
@@ -106,20 +105,20 @@ impl LessonMessage {
 
 pub fn apply_debug_info<'a>(
     message: &'a mut LabeledMessage,
-    _entry: &TaskInfo,
+    _entry: &db::models::BotTask,
     diff: &Diff,
 ) -> &'a mut LabeledMessage {
     // Add debug information to the message
     match diff {
         Diff::Changed { from, to } => {
             message.push("Debug info: Changed lesson from ");
-            message.push(from.subjects.first().map_or("None", |s| &s.name));
+            message.push(from.subjects.first().map_or("None", |s| s.as_str()));
             message.push(" to ");
-            message.push(to.subjects.first().map_or("None", |s| &s.name));
+            message.push(to.subjects.first().map_or("None", |s| s.name.as_str()));
         }
         Diff::Added(lesson) => {
             message.push("Debug info: Added new lesson for ");
-            message.push(lesson.subjects.first().map_or("None", |s| &s.name));
+            message.push(lesson.subjects.first().map_or("None", |s| s.name.as_str()));
         }
     }
     message
