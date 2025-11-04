@@ -1,3 +1,4 @@
+use crate::message_formatter::message_lesson::MessageLesson;
 use chrono::NaiveDate;
 use untis::LessonCode;
 
@@ -47,48 +48,26 @@ impl Diff<'_> {
         diff
     }
 
-    // Compare DB lesson with Untis lesson
+    // Compare DB lesson with Untis lesson using MessageLesson (fields relevant for messaging)
     fn lessons_equal(prev: &db::models::Lesson, new: &untis::Lesson) -> bool {
-        let new_type_str = match new.lesson_type {
-            untis::LessonType::Lesson => "Unterricht",
-            untis::LessonType::OfficeHour => "oh",
-            untis::LessonType::Standby => "sb",
-            untis::LessonType::BreakSupervision => "bs",
-            untis::LessonType::Exam => "ex",
-        };
-
-        if prev.lesson_id != new.id as i64
-            || prev.date != new.date.0
-            || prev.start_time != new.start_time.0
-            || prev.end_time != new.end_time.0
-            || prev.lesson_code != new.code.to_string()
-            || prev.lesson_type.as_deref() != Some(new_type_str)
-            || prev.subst_text != new.subst_text
-        {
+        // Date is not part of MessageLesson; compare it explicitly to capture day changes
+        if prev.date != new.date.0 {
             return false;
         }
 
-        // Compare string sets (order-independent)
-        fn sets_equal(a: &[String], b: &[String]) -> bool {
-            if a.len() != b.len() {
-                return false;
-            }
-            let mut a_sorted = a.to_vec();
-            let mut b_sorted = b.to_vec();
-            a_sorted.sort();
-            b_sorted.sort();
-            a_sorted == b_sorted
+        // Normalize order-insensitive collections before equality
+        fn normalize(mut m: MessageLesson) -> MessageLesson {
+            m.subjects.sort();
+            m.teachers.sort();
+            m.rooms.sort();
+            m.classes.sort();
+            m
         }
 
-        let new_subjects: Vec<String> = new.subjects.iter().map(|s| s.name.clone()).collect();
-        let new_teachers: Vec<String> = new.teachers.iter().map(|t| t.name.clone()).collect();
-        let new_rooms: Vec<String> = new.rooms.iter().map(|r| r.name.clone()).collect();
-        let new_classes: Vec<String> = new.classes.iter().map(|c| c.name.clone()).collect();
+        let left = normalize(MessageLesson::from(prev));
+        let right = normalize(MessageLesson::from(new));
 
-        sets_equal(&prev.subjects, &new_subjects)
-            && sets_equal(&prev.teachers, &new_teachers)
-            && sets_equal(&prev.rooms, &new_rooms)
-            && sets_equal(&prev.classes, &new_classes)
+        left == right
     }
 
     pub fn date(&self) -> NaiveDate {

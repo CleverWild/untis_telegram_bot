@@ -191,23 +191,6 @@ impl BotTask {
             .map_err(|e| eyre::eyre!("failed to get bot_state: {e}"))
     }
 
-    /// Get the most recently updated bot state (singleton pattern).
-    pub fn get_latest() -> eyre::Result<Option<BotTask>> {
-        use crate::diesel_impl::global_pool;
-        use crate::schema::bot_states;
-        use diesel::prelude::*;
-
-        let pool = global_pool()?;
-        let mut conn = pool.get()?;
-
-        bot_states::table
-            .select(BotTask::as_select())
-            .order(bot_states::updated_at.desc())
-            .first(&mut conn)
-            .optional()
-            .map_err(|e| eyre::eyre!("failed to get latest bot_state: {e}"))
-    }
-
     /// Get all bot states ordered by updated_at desc.
     pub fn get_all() -> eyre::Result<Vec<BotTask>> {
         use crate::diesel_impl::global_pool;
@@ -250,7 +233,7 @@ impl BotTask {
         use diesel::prelude::*;
 
         // Ensure the lesson is associated with this bot state
-        new_lesson.bot_state = Some(self.id);
+        new_lesson.bot_state = self.id;
 
         let pool = global_pool()?;
         let mut conn = pool.get()?;
@@ -272,7 +255,7 @@ impl BotTask {
 
         // Ensure all lessons are associated with this bot state
         for lesson in &mut new_lessons {
-            lesson.bot_state = Some(self.id);
+            lesson.bot_state = self.id;
         }
 
         let pool = global_pool()?;
@@ -299,14 +282,16 @@ impl BotTask {
     }
 }
 
-#[derive(Debug, Clone, Queryable, Identifiable, Selectable, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Queryable, Identifiable, Selectable, Serialize, Deserialize, PartialEq, Eq,
+)]
 #[diesel(table_name = lessons)]
+#[diesel(primary_key(lesson_id))]
 pub struct Lesson {
-    pub id: Uuid,
     pub lesson_id: i64,
     pub date: NaiveDate,
     pub end_time: NaiveTime,
-    pub lesson_type: Option<String>,
+    pub lesson_type: String,
     pub start_time: NaiveTime,
     pub subst_text: Option<String>,
     pub lesson_code: String,
@@ -314,12 +299,12 @@ pub struct Lesson {
     pub rooms: Vec<String>,
     pub subjects: Vec<String>,
     pub teachers: Vec<String>,
-    pub bot_state: Option<Uuid>,
+    pub bot_state: Uuid,
 }
 
 impl Lesson {
     /// Get a lesson by ID.
-    pub fn get_by_id(lesson_id: Uuid) -> eyre::Result<Option<Lesson>> {
+    pub fn get_by_id(lesson_id: i64) -> eyre::Result<Option<Lesson>> {
         use crate::diesel_impl::global_pool;
         use crate::schema::lessons;
         use diesel::prelude::*;
@@ -328,11 +313,31 @@ impl Lesson {
         let mut conn = pool.get()?;
 
         lessons::table
-            .filter(lessons::id.eq(lesson_id))
+            .filter(lessons::lesson_id.eq(lesson_id))
             .select(Lesson::as_select())
             .first(&mut conn)
             .optional()
             .map_err(|e| eyre::eyre!("failed to get lesson: {e}"))
+    }
+
+    pub fn get_owned_by_task_id(task_id: Uuid) -> eyre::Result<Vec<Lesson>> {
+        use crate::diesel_impl::global_pool;
+        use crate::schema::lessons;
+        use diesel::prelude::*;
+
+        let pool = global_pool()?;
+        let mut conn = pool.get()?;
+
+        lessons::table
+            .filter(lessons::bot_state.eq(task_id))
+            .select(Lesson::as_select())
+            .order((
+                lessons::date.asc(),
+                lessons::start_time.asc(),
+                lessons::lesson_id.asc(),
+            ))
+            .load(&mut conn)
+            .map_err(|e| eyre::eyre!("failed to get lessons for bot_state: {e}"))
     }
 
     /// Get all lessons ordered by date, start time.
@@ -349,7 +354,7 @@ impl Lesson {
             .order((
                 lessons::date.asc(),
                 lessons::start_time.asc(),
-                lessons::id.asc(),
+                lessons::lesson_id.asc(),
             ))
             .load(&mut conn)
             .map_err(|e| eyre::eyre!("failed to get all lessons: {e}"))
@@ -364,10 +369,24 @@ impl Lesson {
         let pool = global_pool()?;
         let mut conn = pool.get()?;
 
-        diesel::delete(lessons::table.filter(lessons::id.eq(self.id)))
+        diesel::delete(lessons::table.filter(lessons::lesson_id.eq(self.lesson_id)))
             .execute(&mut conn)
             .map_err(|e| eyre::eyre!("failed to delete lesson: {e}"))
     }
+}
+
+/// Delete all lessons with date before the specified date
+pub fn delete_lessons_before(before_date: chrono::NaiveDate) -> eyre::Result<usize> {
+    use crate::diesel_impl::global_pool;
+    use crate::schema::lessons;
+    use diesel::prelude::*;
+
+    let pool = global_pool()?;
+    let mut conn = pool.get()?;
+
+    diesel::delete(lessons::table.filter(lessons::date.lt(before_date)))
+        .execute(&mut conn)
+        .map_err(|e| eyre::eyre!("failed to delete old lessons: {e}"))
 }
 
 // Insertable/Changeset helpers
@@ -408,11 +427,10 @@ pub struct BotTaskChangeset {
 #[derive(Debug, Clone, Insertable, Serialize, Deserialize)]
 #[diesel(table_name = lessons)]
 pub struct NewLesson {
-    pub id: Uuid,
     pub lesson_id: i64,
     pub date: NaiveDate,
     pub end_time: NaiveTime,
-    pub lesson_type: Option<String>,
+    pub lesson_type: String,
     pub start_time: NaiveTime,
     pub subst_text: Option<String>,
     pub lesson_code: String,
@@ -420,5 +438,5 @@ pub struct NewLesson {
     pub rooms: Vec<String>,
     pub subjects: Vec<String>,
     pub teachers: Vec<String>,
-    pub bot_state: Option<Uuid>,
+    pub bot_state: Uuid,
 }

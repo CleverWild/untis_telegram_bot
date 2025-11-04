@@ -8,7 +8,6 @@
 // Table: bot_states
 // Fields chosen to match the generated DTOs and models in this crate.
 diesel::table! {
-    use diesel::sql_types::*;
     bot_states (id) {
         id -> Uuid,
         status_message_id -> Nullable<Int4>,
@@ -27,13 +26,11 @@ diesel::table! {
 
 // Table: lessons
 diesel::table! {
-    use diesel::sql_types::*;
-    lessons (id) {
-        id -> Uuid,
+    lessons (lesson_id) {
         lesson_id -> Int8,
         date -> Date,
         end_time -> Time,
-        lesson_type -> Nullable<Text>,
+        lesson_type -> Text,
         start_time -> Time,
         subst_text -> Nullable<Text>,
         lesson_code -> Text,
@@ -41,7 +38,7 @@ diesel::table! {
         rooms -> Array<Text>,
         subjects -> Array<Text>,
         teachers -> Array<Text>,
-        bot_state -> Nullable<Uuid>,
+        bot_state -> Uuid,
     }
 }
 

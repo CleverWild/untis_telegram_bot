@@ -1,5 +1,6 @@
 //! Specialized formatters for different message types
 
+use super::message_lesson::MessageLesson;
 use crate::message_formatter::core::{LessonMessage, MessageField, MessageHeader};
 
 use super::fields::{FieldDiff, FieldRegistry};
@@ -11,14 +12,14 @@ pub struct LessonChangeFormatter;
 impl LessonChangeFormatter {
     /// Creates a Message for a lesson change
     pub fn format_change(&self, from: &db::models::Lesson, to: &untis::Lesson) -> LessonMessage {
-        // Convert Untis::Lesson into a synthetic db::models::Lesson-like shape locally
-        // to reuse the same field extractor logic without global coupling.
-        let to_entry: db::models::Lesson = lesson_entry_from_untis(to);
+        // Convert inputs into lightweight MessageLesson shapes and compare/extract fields
+        let from_entry: MessageLesson = MessageLesson::from(from);
+        let to_entry: MessageLesson = MessageLesson::from(to);
 
         let field_diffs = FieldRegistry::standard_fields()
             .iter()
             .filter_map(|field| {
-                let from_value = field.extract(from);
+                let from_value = field.extract(&from_entry);
                 let to_value = field.extract(&to_entry);
 
                 if let Some(diff) =
@@ -76,7 +77,10 @@ impl NewLessonFormatter {
             },
             Field {
                 name: "Status",
-                value: lesson.code.to_string(),
+                value: serde_json::to_string(&lesson.code)
+                    .unwrap()
+                    .trim_matches('"')
+                    .to_string(),
             },
         ]
         .into_iter()
@@ -87,43 +91,6 @@ impl NewLessonFormatter {
     }
 }
 
-/// Local helper: convert Untis::Lesson to a db::models::Lesson-compatible struct
-/// for the purpose of field extraction/formatting only.
-fn lesson_entry_from_untis(lesson: &untis::Lesson) -> db::models::Lesson {
-    use db::Uuid;
-
-    let subjects = lesson.subjects.iter().map(|i| i.name.clone()).collect();
-
-    let teachers = lesson.teachers.iter().map(|i| i.name.clone()).collect();
-
-    let rooms = lesson.rooms.iter().map(|i| i.name.clone()).collect();
-
-    let classes = lesson.classes.iter().map(|i| i.name.clone()).collect();
-
-    let lesson_type = Some(
-        match lesson.lesson_type {
-            untis::LessonType::Lesson => "Unterricht",
-            untis::LessonType::OfficeHour => "oh",
-            untis::LessonType::Standby => "sb",
-            untis::LessonType::BreakSupervision => "bs",
-            untis::LessonType::Exam => "ex",
-        }
-        .to_string(),
-    );
-
-    db::models::Lesson {
-        subjects,
-        teachers,
-        rooms,
-        classes,
-        id: Uuid::nil(),
-        lesson_id: lesson.id as i64,
-        date: lesson.date.0,
-        end_time: lesson.end_time.0,
-        lesson_code: lesson.code.to_string(),
-        lesson_type,
-        start_time: lesson.start_time.0,
-        subst_text: lesson.subst_text.clone(),
-        bot_state: None,
-    }
-}
+// Note: We intentionally format using MessageLesson (a lightweight view)
+// instead of the full DB model to decouple message rendering and avoid
+// accidental differences in unrelated fields.

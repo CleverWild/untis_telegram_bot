@@ -4,3 +4,4 @@ Secrets*.toml
 .shuttle*
 timetable.json
 copilot-instruction.md
+/.vscode

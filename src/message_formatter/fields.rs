@@ -1,5 +1,6 @@
 //! Field system for extracting and formatting lesson data
 
+use super::message_lesson::MessageLesson;
 use crate::message::LabeledMessage;
 
 /// Default buffer capacity for message formatting to avoid reallocations
@@ -9,7 +10,7 @@ pub const FIELD_SEPARATOR: &str = ": ";
 pub const CHANGES_SEPARATOR: &str = " → ";
 
 /// Type alias for field extraction functions
-pub type FieldExtractor = fn(&db::models::Lesson) -> String;
+pub type FieldExtractor = fn(&MessageLesson) -> String;
 
 /// Represents a lesson field that can be extracted and formatted
 #[derive(Clone)]
@@ -62,7 +63,7 @@ impl LessonField {
     }
 
     /// Extracts the field value from a lesson
-    pub fn extract(&self, lesson: &db::models::Lesson) -> String {
+    pub fn extract(&self, lesson: &MessageLesson) -> String {
         (self.extractor)(lesson)
     }
 }

@@ -1,6 +1,7 @@
 use crate::datetime::{Date, Time};
 use serde::{Deserialize, Serialize};
 use std::{
+    borrow::Cow,
     collections::HashMap,
     fmt::{self, Debug},
 };
@@ -515,7 +516,7 @@ pub struct Homework {
 
 /// Represents the status of a lesson (regular, cancelled, etc.)
 #[derive(
-    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Hash, Debug, Serialize, Deserialize,
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Hash, Debug, Serialize, Deserialize, strum::Display
 )]
 #[serde(rename_all = "lowercase")]
 pub enum LessonCode {
@@ -523,17 +524,6 @@ pub enum LessonCode {
     Regular,
     Irregular,
     Cancelled,
-}
-
-impl fmt::Display for LessonCode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = match self {
-            LessonCode::Regular => "Regular",
-            LessonCode::Irregular => "Irregular",
-            LessonCode::Cancelled => "Cancelled",
-        };
-        write!(f, "{name}")
-    }
 }
 
 /// Represents the type of lesson.
@@ -598,6 +588,28 @@ impl Default for IdItem {
             orig_id: None,
             orig_name: None,
         }
+    }
+}
+
+pub trait AsItemName {
+    type Output;
+
+    fn as_name(&self) -> Self::Output;
+}
+
+impl AsItemName for IdItem {
+    type Output = String;
+
+    fn as_name(&self) -> Self::Output {
+        self.name.clone()
+    }
+}
+
+impl<T: AsItemName> AsItemName for Vec<T> {
+    type Output = Vec<T::Output>;
+
+    fn as_name(&self) -> Self::Output {
+        self.iter().map(AsItemName::as_name).collect::<Vec<_>>()
     }
 }
 

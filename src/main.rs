@@ -6,6 +6,7 @@ use teloxide::{Bot, prelude::ChatId};
 use tokio::task::JoinSet;
 use tracing::level_filters::LevelFilter;
 
+mod cleanup;
 mod diff_impl;
 mod message;
 mod message_formatter;
@@ -59,10 +60,15 @@ async fn main() {
         panic!("Cannot continue without database");
     }
     tracing::info!("Database initialized");
+
     let mut join_handles = JoinSet::new();
     let mut running_tasks: HashMap<db::Uuid, tokio::task::AbortHandle> = HashMap::new();
+
+    // Spawn cleanup task for old lessons
+    tokio::spawn(cleanup::daily_cleanup_loop());
+
     tracing::info!("Starting observer loop...");
-    let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+    let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
     loop {
@@ -99,7 +105,7 @@ async fn main() {
                 continue; // Already running
             }
 
-            tracing::info!("Starting worker for bot state: {}", task.task_name);
+            tracing::info!("Starting worker for task: {:?}", task);
 
             let school = match untis::schools::get_by_name(task.untis_school.as_str()).await {
                 Ok(s) => s,
@@ -153,13 +159,13 @@ async fn main() {
                                 error = %e,
                                 "Worker encountered an error, will restart on next cycle"
                             );
-                            interval.reset_after(Duration::from_secs(2));
+                            interval.reset_after(Duration::from_secs(1));
                         }
                         // Join error: cancelled or panicked
                         Err(join_err) => {
                             if join_err.is_panic() {
                                 tracing::error!("Worker panicked: {join_err}");
-                                interval.reset_after(Duration::from_secs(2));
+                                interval.reset_after(Duration::from_secs(1));
                             }
                             // Cancelled tasks are expected
                         }

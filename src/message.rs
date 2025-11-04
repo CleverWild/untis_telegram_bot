@@ -297,41 +297,30 @@ mod tests {
     }
 
     fn convert_to_db_entry(lesson: &untis::Lesson) -> db::models::Lesson {
-        use db::Uuid;
-
         let subjects = lesson.subjects.iter().map(|i| i.name.clone()).collect();
-
         let teachers = lesson.teachers.iter().map(|i| i.name.clone()).collect();
-
         let rooms = lesson.rooms.iter().map(|i| i.name.clone()).collect();
-
         let classes = lesson.classes.iter().map(|i| i.name.clone()).collect();
-
-        let lesson_type = Some(
-            match lesson.lesson_type {
-                untis::LessonType::Lesson => "Unterricht",
-                untis::LessonType::OfficeHour => "oh",
-                untis::LessonType::Standby => "sb",
-                untis::LessonType::BreakSupervision => "bs",
-                untis::LessonType::Exam => "ex",
-            }
-            .to_string(),
-        );
 
         db::models::Lesson {
             subjects,
             teachers,
             rooms,
             classes,
-            id: Uuid::new_v4(),
             lesson_id: lesson.id as i64,
             date: lesson.date.0,
             end_time: lesson.end_time.0,
-            lesson_code: lesson.code.to_string(),
-            lesson_type,
+            lesson_code: serde_json::to_string(&lesson.code)
+                .unwrap()
+                .trim_matches('"')
+                .to_string(),
+            lesson_type: serde_json::to_string(&lesson.lesson_type)
+                .unwrap()
+                .trim_matches('"')
+                .to_string(),
             start_time: lesson.start_time.0,
             subst_text: lesson.subst_text.clone(),
-            bot_state: None,
+            bot_state: db::Uuid::nil(),
         }
     }
 }

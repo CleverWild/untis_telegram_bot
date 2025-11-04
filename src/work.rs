@@ -99,38 +99,31 @@ pub async fn working_loop(mut ctx: WorkerContext) -> Result<Infallible, eyre::Re
 
 // Local helper: convert Untis::Lesson to a db::Lesson-like object
 fn lesson_entry_from_untis(lesson: &untis::Lesson) -> db::models::Lesson {
-    use db::Uuid;
-
     let subjects: Vec<String> = lesson.subjects.iter().map(|i| i.name.clone()).collect();
     let teachers: Vec<String> = lesson.teachers.iter().map(|i| i.name.clone()).collect();
     let rooms: Vec<String> = lesson.rooms.iter().map(|i| i.name.clone()).collect();
     let classes: Vec<String> = lesson.classes.iter().map(|i| i.name.clone()).collect();
-
-    let lesson_type = Some(
-        match lesson.lesson_type {
-            untis::LessonType::Lesson => "Unterricht",
-            untis::LessonType::OfficeHour => "oh",
-            untis::LessonType::Standby => "sb",
-            untis::LessonType::BreakSupervision => "bs",
-            untis::LessonType::Exam => "ex",
-        }
-        .to_string(),
-    );
 
     db::models::Lesson {
         subjects,
         teachers,
         rooms,
         classes,
-        id: Uuid::nil(),
         lesson_id: lesson.id as i64,
         date: lesson.date.0,
         end_time: lesson.end_time.0,
-        lesson_code: lesson.code.to_string(),
-        lesson_type,
+        lesson_code: serde_json::to_string(&lesson.code)
+            .unwrap()
+            .trim_matches('"')
+            .to_string(),
+        lesson_type: serde_json::to_string(&lesson.lesson_type)
+            .unwrap()
+            .trim_matches('"')
+            .to_string(),
         start_time: lesson.start_time.0,
         subst_text: lesson.subst_text.clone(),
-        bot_state: None,
+        // Dummy value for formatting-only instance; not persisted
+        bot_state: db::Uuid::nil(),
     }
 }
 
@@ -225,10 +218,52 @@ async fn process_timetable(
         }
     }
 
-    // Save timetable to database - TODO: implement batch insert/update
-    // For now, we skip saving to DB as the old upsert_lessons query no longer exists
-    // You may need to implement this using db::repository::insert_lessons_batch or similar
-    tracing::debug!("Skipping timetable save to DB (upsert_lessons not implemented yet)");
+    // Save timetable to database: delete old lessons and insert new ones
+    tracing::debug!("Saving timetable to database");
+
+    // Delete all existing lessons for this bot task
+    if let Err(e) = ctx.task.delete_lessons() {
+        tracing::warn!("Failed to delete old lessons from DB: {e}");
+    }
+
+    // Convert Untis lessons to NewLesson insertable format
+    let new_lessons: Vec<db::models::NewLesson> = timetable
+        .iter()
+        .map(|lesson| {
+            let subjects: Vec<String> = lesson.subjects.iter().map(|i| i.name.clone()).collect();
+            let teachers: Vec<String> = lesson.teachers.iter().map(|i| i.name.clone()).collect();
+            let rooms: Vec<String> = lesson.rooms.iter().map(|i| i.name.clone()).collect();
+            let classes: Vec<String> = lesson.classes.iter().map(|i| i.name.clone()).collect();
+
+            db::models::NewLesson {
+                lesson_id: lesson.id as i64,
+                date: lesson.date.0,
+                end_time: lesson.end_time.0,
+                lesson_type: serde_json::to_string(&lesson.lesson_type)
+                    .unwrap()
+                    .trim_matches('"')
+                    .to_string(),
+                start_time: lesson.start_time.0,
+                subst_text: lesson.subst_text.clone(),
+                lesson_code: serde_json::to_string(&lesson.code)
+                    .unwrap()
+                    .trim_matches('"')
+                    .to_string(),
+                classes,
+                rooms,
+                subjects,
+                teachers,
+                bot_state: ctx.task.id,
+            }
+        })
+        .collect();
+
+    // Insert new lessons in batch
+    if let Err(e) = ctx.task.insert_lessons_batch(new_lessons) {
+        tracing::error!("Failed to insert lessons batch to DB: {e}");
+    } else {
+        tracing::debug!("Successfully saved {} lessons to database", timetable.len());
+    }
 
     // Convert and return as db::models::Lesson for next diff iteration
     Ok(timetable.iter().map(lesson_entry_from_untis).collect())
@@ -246,10 +281,14 @@ async fn update_status(ctx: &mut WorkerContext) -> Result<(), eyre::Report> {
     let today = chrono::Local::now().date_naive();
 
     // Fetch current timetable from database
-    let timetable = db::models::Lesson::get_all().unwrap_or_else(|e| {
+    let timetable = db::models::Lesson::get_owned_by_task_id(ctx.task.id).unwrap_or_else(|e| {
         tracing::warn!("Failed to load timetable from DB for status update: {e}");
         Vec::new()
     });
+
+    if timetable.len() <= 5 {
+        tracing::warn!("Number of lessons in timetable is low: {}", timetable.len());
+    }
 
     // Filter out expired homeworks based on timetable
     // Only filter homeworks that are due TODAY and the lesson has already passed
