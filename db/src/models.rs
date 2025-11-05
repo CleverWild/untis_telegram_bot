@@ -28,6 +28,7 @@ pub struct BotTask {
     pub notification_thread_id: Option<i32>,
     pub status_chat_id: i64,
     pub status_thread_id: Option<i32>,
+    pub timezone: String,
 }
 
 impl BotTask {
@@ -53,6 +54,7 @@ impl BotTask {
             notification_thread_id: None,
             status_chat_id,
             status_thread_id: None,
+            timezone: "Europe/Berlin".to_string(),
         }
     }
 
@@ -78,6 +80,7 @@ impl BotTask {
             notification_thread_id: self.notification_thread_id,
             status_chat_id: self.status_chat_id,
             status_thread_id: self.status_thread_id,
+            timezone: self.timezone.clone(),
         };
 
         diesel::insert_into(bot_states::table)
@@ -288,6 +291,7 @@ impl BotTask {
 #[diesel(table_name = lessons)]
 #[diesel(primary_key(lesson_id))]
 pub struct Lesson {
+    pub bot_state: Uuid,
     pub lesson_id: i64,
     pub date: NaiveDate,
     pub end_time: NaiveTime,
@@ -299,7 +303,6 @@ pub struct Lesson {
     pub rooms: Vec<String>,
     pub subjects: Vec<String>,
     pub teachers: Vec<String>,
-    pub bot_state: Uuid,
 }
 
 impl Lesson {
@@ -406,6 +409,7 @@ pub struct NewBotTask {
     pub notification_thread_id: Option<i32>,
     pub status_chat_id: i64,
     pub status_thread_id: Option<i32>,
+    pub timezone: String,
 }
 
 #[derive(Debug, Clone, AsChangeset, Serialize, Deserialize)]
@@ -422,6 +426,7 @@ pub struct BotTaskChangeset {
     pub notification_thread_id: Option<i32>,
     pub status_chat_id: Option<i64>,
     pub status_thread_id: Option<i32>,
+    pub timezone: Option<String>,
 }
 
 #[derive(Debug, Clone, Insertable, Serialize, Deserialize)]

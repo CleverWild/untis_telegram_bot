@@ -5,6 +5,7 @@ version = "0.1.5"
 
 [dependencies]
 chrono = { workspace = true }
+chrono-tz = "0.10.0"
 config = { workspace = true }
 db = { workspace = true }
 eyre.workspace = true

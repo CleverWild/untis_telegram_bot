@@ -77,9 +77,13 @@ pub async fn working_loop(mut ctx: WorkerContext) -> Result<Infallible, eyre::Re
             notification_thread_id: None,
             status_chat_id: None,
             status_thread_id: None,
+            timezone: None,
         }) {
             tracing::error!(parent: &span, "Failed to update bot state in DB: {e}");
         }
+
+        // Refresh bot state from database to detect external changes
+        ctx.task.reload()?;
 
         // Warn if time to work is to long
         let elapsed = start.elapsed();
@@ -271,13 +275,6 @@ async fn process_timetable(
 
 #[tracing::instrument(skip_all)]
 async fn update_status(ctx: &mut WorkerContext) -> Result<(), eyre::Report> {
-    let BotTask {
-        status_chat_id,
-        status_thread_id,
-        status_message_id,
-        ..
-    } = &ctx.task;
-
     let today = chrono::Local::now().date_naive();
 
     // Fetch current timetable from database
@@ -317,17 +314,31 @@ async fn update_status(ctx: &mut WorkerContext) -> Result<(), eyre::Report> {
         })
         .collect();
 
-    let status_message =
-        crate::status::StatusMessage::new(homeworks, &timetable, ctx.engaged_at).into_message();
+    let timezone: chrono_tz::Tz = match ctx.task.timezone.parse() {
+        Ok(tz) => tz,
+        Err(e) => {
+            let default = chrono_tz::Europe::Berlin;
+            tracing::warn!(
+                "Failed to parse timezone '{tz}', defaulting to {default}: {e}",
+                tz = ctx.task.timezone,
+            );
+            ctx.task.timezone = default.to_string();
+            default
+        }
+    };
 
-    if let Some(message_id) = status_message_id {
+    let status_message =
+        crate::status::StatusMessage::new(homeworks, &timetable, ctx.engaged_at, timezone)
+            .into_message();
+
+    if let Some(message_id) = ctx.task.status_message_id {
         if let Err(e) = edit_message(
             &ctx.bot,
             Chat {
-                id: ChatId(*status_chat_id),
-                thread_id: *status_thread_id,
+                id: ChatId(ctx.task.status_chat_id),
+                thread_id: ctx.task.status_thread_id,
             },
-            MessageId(*message_id),
+            MessageId(message_id),
             status_message.to_string(),
         )
         .await
@@ -340,8 +351,8 @@ async fn update_status(ctx: &mut WorkerContext) -> Result<(), eyre::Report> {
         let msg = send_message(
             &ctx.bot,
             Chat {
-                id: ChatId(*status_chat_id),
-                thread_id: *status_thread_id,
+                id: ChatId(ctx.task.status_chat_id),
+                thread_id: ctx.task.status_thread_id,
             },
             status_message.to_string(),
         )

@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use chrono::{DateTime, FixedOffset, Local, NaiveTime, Utc};
+use chrono::{DateTime, NaiveTime, Utc};
+use chrono_tz::Tz;
 use untis::Homework;
 
 use crate::message::LabeledMessage;
@@ -12,6 +13,7 @@ pub struct StatusMessage {
     homeworks: Vec<Homework>,
     current_or_next_lesson: Option<NearestLesson>,
     timestamp: DateTime<Utc>,
+    timezone: Tz,
 }
 
 #[derive(Debug, Clone)]
@@ -25,6 +27,7 @@ impl StatusMessage {
         homeworks: Vec<Homework>,
         timetable: &[db::models::Lesson],
         uptime_since: DateTime<Utc>,
+        timezone: Tz,
     ) -> Self {
         let sorted_hw = {
             let mut hw = homeworks
@@ -37,12 +40,13 @@ impl StatusMessage {
         };
 
         // Find nearest lesson
-        let current_or_next_lesson = find_nearest_lesson(timetable);
+        let current_or_next_lesson = find_nearest_lesson(timetable, timezone);
 
         Self {
             homeworks: sorted_hw,
             current_or_next_lesson,
             timestamp: uptime_since,
+            timezone,
         }
     }
 
@@ -54,11 +58,11 @@ impl StatusMessage {
             match lesson_info {
                 NearestLesson::Current(lesson) => {
                     msg.push_bold("Current Lesson:").nl();
-                    format_lesson(&mut msg, lesson);
+                    format_lesson(&mut msg, lesson, self.timezone);
                 }
                 NearestLesson::Next(lesson) => {
                     msg.push_bold("Next Lesson:").nl();
-                    format_lesson(&mut msg, lesson);
+                    format_lesson(&mut msg, lesson, self.timezone);
                 }
             }
             msg.nl();
@@ -96,11 +100,10 @@ impl StatusMessage {
             .push_code_inline(into_uptime(elapsed))
             .nl();
 
-        let offset = FixedOffset::east_opt(2 * 3600).expect("valid offset"); // GMT+2 fixed (no DST)
         msg.push("Last refresh:  ")
             .push_code_inline(
                 Utc::now()
-                    .with_timezone(&offset)
+                    .with_timezone(&self.timezone)
                     .format("%H:%M:%S %a %d/%m/%y")
                     .to_string(),
             )
@@ -143,10 +146,10 @@ fn into_uptime(d: Duration) -> String {
 }
 
 /// Find the current lesson (if ongoing) or the next upcoming lesson
-fn find_nearest_lesson(timetable: &[db::models::Lesson]) -> Option<NearestLesson> {
+fn find_nearest_lesson(timetable: &[db::models::Lesson], timezone: Tz) -> Option<NearestLesson> {
     use chrono::Timelike;
 
-    let now = Local::now();
+    let now = Utc::now().with_timezone(&timezone);
     let today = now.date_naive();
     let current_time = NaiveTime::from_hms_opt(now.hour(), now.minute(), 0)?;
 
@@ -176,7 +179,7 @@ fn find_nearest_lesson(timetable: &[db::models::Lesson]) -> Option<NearestLesson
 }
 
 /// Format a lesson for display in status message
-fn format_lesson(msg: &mut LabeledMessage, lesson: &db::models::Lesson) {
+fn format_lesson(msg: &mut LabeledMessage, lesson: &db::models::Lesson, timezone: Tz) {
     // Subject
     let subjects: Vec<_> = lesson.subjects.iter().map(|s| s.as_str()).collect();
     msg.push("  Subject: ")
@@ -203,7 +206,8 @@ fn format_lesson(msg: &mut LabeledMessage, lesson: &db::models::Lesson) {
         lesson.end_time.format("%H:%M")
     ));
     // Date (if not today)
-    if lesson.date != Local::now().date_naive() {
+    let today = Utc::now().with_timezone(&timezone).date_naive();
+    if lesson.date != today {
         msg.push("   ")
             .push_code_inline(lesson.date.format("%a %d/%m/%y").to_string());
     }

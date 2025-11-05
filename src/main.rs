@@ -26,18 +26,26 @@ const DEBUG_TELEGRAM_CHAT: Chat = Chat {
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::builder()
-                .with_default_directive(LevelFilter::INFO.into())
-                .from_env_lossy(),
-        )
-        // .without_time()
-        .pretty()
-        .with_ansi(!IS_PROD) // Disable ANSI color codes in production for cleaner logs
-        .with_line_number(true)
-        // .compact()
-        .init();
+    let env_builder = tracing_subscriber::EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env_lossy();
+    let subscriber_builder = tracing_subscriber::fmt().with_env_filter(if IS_PROD {
+        env_builder.add_directive("untis_telegram_bot=info".parse().unwrap())
+    } else {
+        env_builder.add_directive("untis_telegram_bot=trace".parse().unwrap())
+    });
+    if !IS_PROD {
+        subscriber_builder
+            .pretty()
+            .with_ansi(true)
+            .with_line_number(true)
+            .init();
+    } else {
+        subscriber_builder
+            .with_ansi(false)
+            .with_line_number(true)
+            .init();
+    }
 
     let token = {
         // Try to load from environment variable first, then from file
@@ -72,7 +80,7 @@ async fn main() {
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
     loop {
-        tracing::info!("Fetching bot states...");
+        tracing::debug!("Fetching bot states...");
 
         // Fetch all bot states
         let bot_states = match db::models::BotTask::get_all() {

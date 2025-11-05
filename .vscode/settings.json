@@ -1,22 +1,13 @@
 {
     "cSpell.words": [
         "dbschema",
+        "lsnumber",
+        "lstext",
         "orgid",
         "orgname",
         "pushln",
+        "statflags",
         "Unterricht",
         "Untis"
     ],
-    "emeraldwalk.runonsave": {
-        "commands": [
-            {
-                "match": "\\.gel$",
-                "cmd": "cd ${workspaceFolder}/db && gelx generate"
-            },
-            {
-                "match": "\\.edgeql$",
-                "cmd": "cd ${workspaceFolder}/db && gelx generate"
-            }
-        ]
-    }
 }
