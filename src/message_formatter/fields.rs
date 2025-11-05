@@ -84,7 +84,7 @@ impl FieldRegistry {
             LessonField::required("Teacher", |l| l.teachers.to_vec().join(", ")),
             LessonField::required("Room", |l| l.rooms.to_vec().join(", ")),
             LessonField::required("Status", |l| l.lesson_code.clone()),
-            LessonField::only_changed("Additional Info", |l| {
+            LessonField::required("Additional Info", |l| {
                 l.subst_text.clone().unwrap_or_default()
             }),
         ]

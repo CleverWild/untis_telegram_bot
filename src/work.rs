@@ -66,7 +66,7 @@ pub async fn working_loop(mut ctx: WorkerContext) -> Result<Infallible, eyre::Re
 
         // Update bot state in database using specific state ID to avoid race conditions
         if let Err(e) = ctx.task.update(db::models::BotTaskChangeset {
-            status_message_id: ctx.task.status_message_id,
+            status_message_id: ctx.task.status_message_id.map(Some),
             target_class_name: None,
             untis_school: None,
             task_name: None,
@@ -143,7 +143,7 @@ async fn process_timetable(
         ..
     } = &ctx.task;
 
-    tracing::info!("Fetching timetable");
+    tracing::debug!("Fetching timetable");
 
     let date =
         untis::Date(next_friday(chrono::Local::now().date_naive()) + chrono::Duration::days(14));
