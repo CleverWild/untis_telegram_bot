@@ -3,6 +3,7 @@
 mod diesel_impl;
 pub mod models;
 mod schema;
+mod utils;
 
 pub use diesel_impl::init_global_pool_from_env as init_db;
 

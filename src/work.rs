@@ -8,7 +8,7 @@ use crate::{
     DEBUG_TELEGRAM_CHAT, IS_PROD,
     diff_impl::Diff,
     message,
-    message_formatter::{core::apply_debug_info, format_message},
+    message_formatter::{apply_debug_info, format_message},
     utils::{edit_message, next_friday, send_message, sort_diffs},
 };
 use db::{DateTime, Utc, models::BotTask};
@@ -30,7 +30,21 @@ pub struct WorkerContext {
 pub async fn working_loop(mut ctx: WorkerContext) -> Result<Infallible, eyre::Report> {
     let span = tracing::info_span!("preparation");
 
-    tracing::info!(parent: &span, "Starting fetch");
+    let tz: chrono_tz::Tz = match ctx.task.timezone.parse() {
+        Ok(tz) => tz,
+        Err(e) => {
+            let default = chrono_tz::Europe::Berlin;
+            tracing::warn!(
+                parent: &span,
+                "Failed to parse timezone '{tz}', defaulting to {default}: {e}",
+                tz = ctx.task.timezone,
+            );
+            ctx.task.timezone = default.to_string();
+            default
+        }
+    };
+
+    tracing::debug!(parent: &span, "Starting fetch");
 
     let mut prev: Option<Vec<db::models::Lesson>> = match db::models::Lesson::get_all() {
         Ok(db_lessons) if !db_lessons.is_empty() => Some(db_lessons),
@@ -62,11 +76,11 @@ pub async fn working_loop(mut ctx: WorkerContext) -> Result<Infallible, eyre::Re
         );
 
         // Update status message (queries DB internally)
-        update_status(&mut ctx).instrument(span.clone()).await?;
+        update_status(&mut ctx, tz).instrument(span.clone()).await?;
 
         // Update bot state in database using specific state ID to avoid race conditions
         if let Err(e) = ctx.task.update(db::models::BotTaskChangeset {
-            status_message_id: ctx.task.status_message_id.map(Some),
+            status_message_id: Some(ctx.task.status_message_id),
             target_class_name: None,
             untis_school: None,
             task_name: None,
@@ -99,36 +113,6 @@ pub async fn working_loop(mut ctx: WorkerContext) -> Result<Infallible, eyre::Re
     #[allow(dead_code)]
     const YEARS_TO_OVERFLOW: u64 = u32::MAX as u64 / (365 * 24 * 60 * 60) * DURATION.as_secs();
     unreachable!("Integer overflow is unlikely here, but possible, see <YEARS_TO_OVERFLOW> const");
-}
-
-// Local helper: convert Untis::Lesson to a db::Lesson-like object
-fn lesson_entry_from_untis(lesson: &untis::Lesson) -> db::models::Lesson {
-    let subjects: Vec<String> = lesson.subjects.iter().map(|i| i.name.clone()).collect();
-    let teachers: Vec<String> = lesson.teachers.iter().map(|i| i.name.clone()).collect();
-    let rooms: Vec<String> = lesson.rooms.iter().map(|i| i.name.clone()).collect();
-    let classes: Vec<String> = lesson.classes.iter().map(|i| i.name.clone()).collect();
-
-    db::models::Lesson {
-        subjects,
-        teachers,
-        rooms,
-        classes,
-        lesson_id: lesson.id as i64,
-        date: lesson.date.0,
-        end_time: lesson.end_time.0,
-        lesson_code: serde_json::to_string(&lesson.code)
-            .unwrap()
-            .trim_matches('"')
-            .to_string(),
-        lesson_type: serde_json::to_string(&lesson.lesson_type)
-            .unwrap()
-            .trim_matches('"')
-            .to_string(),
-        start_time: lesson.start_time.0,
-        subst_text: lesson.subst_text.clone(),
-        // Dummy value for formatting-only instance; not persisted
-        bot_state: db::Uuid::nil(),
-    }
 }
 
 #[tracing::instrument(skip_all)]
@@ -187,7 +171,7 @@ async fn process_timetable(
                     message.push(separator);
                 }
 
-                let formatted = format_message(&diff).into_labeled_message();
+                let formatted = format_message(diff.clone()).into_labeled_message();
 
                 // Add normal view
                 message.extend(formatted.filter_normal());
@@ -233,48 +217,22 @@ async fn process_timetable(
     // Convert Untis lessons to NewLesson insertable format
     let new_lessons: Vec<db::models::NewLesson> = timetable
         .iter()
-        .map(|lesson| {
-            let subjects: Vec<String> = lesson.subjects.iter().map(|i| i.name.clone()).collect();
-            let teachers: Vec<String> = lesson.teachers.iter().map(|i| i.name.clone()).collect();
-            let rooms: Vec<String> = lesson.rooms.iter().map(|i| i.name.clone()).collect();
-            let classes: Vec<String> = lesson.classes.iter().map(|i| i.name.clone()).collect();
-
-            db::models::NewLesson {
-                lesson_id: lesson.id as i64,
-                date: lesson.date.0,
-                end_time: lesson.end_time.0,
-                lesson_type: serde_json::to_string(&lesson.lesson_type)
-                    .unwrap()
-                    .trim_matches('"')
-                    .to_string(),
-                start_time: lesson.start_time.0,
-                subst_text: lesson.subst_text.clone(),
-                lesson_code: serde_json::to_string(&lesson.code)
-                    .unwrap()
-                    .trim_matches('"')
-                    .to_string(),
-                classes,
-                rooms,
-                subjects,
-                teachers,
-                bot_state: ctx.task.id,
-            }
-        })
+        .cloned()
+        .map(|l| ctx.task.bind_lesson_to_self(l.into()))
         .collect();
 
     // Insert new lessons in batch
-    if let Err(e) = ctx.task.insert_lessons_batch(new_lessons) {
-        tracing::error!("Failed to insert lessons batch to DB: {e}");
-    } else {
-        tracing::debug!("Successfully saved {} lessons to database", timetable.len());
+    match ctx.task.insert_lessons_batch(new_lessons) {
+        Ok(new_db_lessons) => {
+            tracing::debug!("Successfully saved {} lessons to database", timetable.len());
+            Ok(new_db_lessons)
+        }
+        Err(e) => Err(eyre::eyre!("Failed to insert lessons batch to DB: {e}")),
     }
-
-    // Convert and return as db::models::Lesson for next diff iteration
-    Ok(timetable.iter().map(lesson_entry_from_untis).collect())
 }
 
 #[tracing::instrument(skip_all)]
-async fn update_status(ctx: &mut WorkerContext) -> Result<(), eyre::Report> {
+async fn update_status(ctx: &mut WorkerContext, tz: chrono_tz::Tz) -> Result<(), eyre::Report> {
     let today = chrono::Local::now().date_naive();
 
     // Fetch current timetable from database
@@ -314,21 +272,8 @@ async fn update_status(ctx: &mut WorkerContext) -> Result<(), eyre::Report> {
         })
         .collect();
 
-    let timezone: chrono_tz::Tz = match ctx.task.timezone.parse() {
-        Ok(tz) => tz,
-        Err(e) => {
-            let default = chrono_tz::Europe::Berlin;
-            tracing::warn!(
-                "Failed to parse timezone '{tz}', defaulting to {default}: {e}",
-                tz = ctx.task.timezone,
-            );
-            ctx.task.timezone = default.to_string();
-            default
-        }
-    };
-
     let status_message =
-        crate::status::StatusMessage::new(homeworks, &timetable, ctx.engaged_at, timezone)
+        crate::status::StatusMessage::new(homeworks, &timetable, ctx.engaged_at, tz)
             .into_message();
 
     if let Some(message_id) = ctx.task.status_message_id {

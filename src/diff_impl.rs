@@ -1,17 +1,5 @@
-use crate::message_formatter::message_lesson::MessageLesson;
 use chrono::NaiveDate;
 use untis::LessonCode;
-
-// pub enum DiffType {
-//     Status,
-//     Teacher,
-//     Room,
-//     Subject,
-//     Time,
-//     ActivityType,
-// }
-
-// pub struct Diffs(pub Vec<DiffType>);
 
 #[derive(Debug, Clone)]
 pub enum Diff<'a> {
@@ -48,15 +36,15 @@ impl Diff<'_> {
         diff
     }
 
-    // Compare DB lesson with Untis lesson using MessageLesson (fields relevant for messaging)
+    // Compare DB lesson with Untis lesson using UnownedLesson (fields relevant for messaging)
     fn lessons_equal(prev: &db::models::Lesson, new: &untis::Lesson) -> bool {
-        // Date is not part of MessageLesson; compare it explicitly to capture day changes
+        // Date is not part of UnownedLesson; compare it explicitly to capture day changes
         if prev.date != new.date.0 {
             return false;
         }
 
         // Normalize order-insensitive collections before equality
-        fn normalize(mut m: MessageLesson) -> MessageLesson {
+        fn normalize(mut m: db::models::UnownedLesson) -> db::models::UnownedLesson {
             m.subjects.sort();
             m.teachers.sort();
             m.rooms.sort();
@@ -64,8 +52,8 @@ impl Diff<'_> {
             m
         }
 
-        let left = normalize(MessageLesson::from(prev));
-        let right = normalize(MessageLesson::from(new));
+        let left = normalize(db::models::UnownedLesson::from(prev.to_owned()));
+        let right = normalize(db::models::UnownedLesson::from(new.to_owned()));
 
         left == right
     }

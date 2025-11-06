@@ -148,10 +148,7 @@ impl Display for LabeledMessage {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        DEBUG_TELEGRAM_CHAT, message_formatter::formatters::LessonChangeFormatter,
-        utils::send_message,
-    };
+    use crate::{DEBUG_TELEGRAM_CHAT, diff_impl::Diff, utils::send_message};
 
     use super::*;
     use teloxide::Bot;
@@ -270,9 +267,11 @@ mod tests {
                 "202",     // Room changed
             );
 
-            let m4 = LessonChangeFormatter
-                .format_change(&from_lesson, &to_lesson)
-                .into_labeled_message();
+            let m4 = crate::message_formatter::format_message(Diff::Changed {
+                from: &from_lesson,
+                to: &to_lesson,
+            })
+            .into_labeled_message();
             v.push(m4);
 
             v

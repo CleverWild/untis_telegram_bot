@@ -1,6 +1,5 @@
 //! Field system for extracting and formatting lesson data
 
-use super::message_lesson::MessageLesson;
 use crate::message::LabeledMessage;
 
 /// Default buffer capacity for message formatting to avoid reallocations
@@ -10,11 +9,11 @@ pub const FIELD_SEPARATOR: &str = ": ";
 pub const CHANGES_SEPARATOR: &str = " → ";
 
 /// Type alias for field extraction functions
-pub type FieldExtractor = fn(&MessageLesson) -> String;
+pub type FieldExtractor = fn(&db::models::UnownedLesson) -> String;
 
 /// Represents a lesson field that can be extracted and formatted
 #[derive(Clone)]
-pub struct LessonField {
+pub struct LessonFieldExtractor {
     /// Human-readable name of the field
     pub name: &'static str,
     /// Function to extract the field value from a lesson
@@ -34,7 +33,7 @@ pub enum FieldVisibility {
     Changed,
 }
 
-impl LessonField {
+impl LessonFieldExtractor {
     /// Creates a new required field
     pub const fn required(name: &'static str, extractor: FieldExtractor) -> Self {
         Self {
@@ -63,33 +62,54 @@ impl LessonField {
     }
 
     /// Extracts the field value from a lesson
-    pub fn extract(&self, lesson: &MessageLesson) -> String {
+    pub fn extract(&self, lesson: &db::models::UnownedLesson) -> String {
         (self.extractor)(lesson)
     }
 }
 
-/// Registry of all available lesson fields
-pub struct FieldRegistry;
+// /// Registry of all available lesson fields
+// pub struct FieldRegistry;
 
-impl FieldRegistry {
-    /// Returns all standard lesson fields
-    pub const fn standard_fields() -> [LessonField; 6] {
-        [
-            LessonField::required("Subject", |l| {
-                l.subjects
-                    .first()
-                    .map_or(String::new(), |subject| subject.clone())
-            }),
-            LessonField::required("Time", |l| format!("{} - {}", l.start_time, l.end_time)),
-            LessonField::required("Teacher", |l| l.teachers.to_vec().join(", ")),
-            LessonField::required("Room", |l| l.rooms.to_vec().join(", ")),
-            LessonField::required("Status", |l| l.lesson_code.clone()),
-            LessonField::required("Additional Info", |l| {
-                l.subst_text.clone().unwrap_or_default()
-            }),
-        ]
-    }
-}
+// impl FieldRegistry {
+//     /// Returns all standard lesson fields
+//     pub const fn standard_fields() -> [LessonField; 6] {
+//         [
+//             LessonField::required("Subject", |l| {
+//                 l.subjects
+//                     .first()
+//                     .map_or(String::new(), |subject| subject.clone())
+//             }),
+//             LessonField::required("Time", |l| format!("{} - {}", l.start_time, l.end_time)),
+//             LessonField::required("Teacher", |l| l.teachers.to_vec().join(", ")),
+//             LessonField::required("Room", |l| l.rooms.to_vec().join(", ")),
+//             LessonField::required("Status", |l| l.lesson_code.clone()),
+//             LessonField::required("Additional Info", |l| {
+//                 l.subst_text.clone().unwrap_or_default()
+//             }),
+//         ]
+//     }
+// }
+
+pub const FIELD_EXTRACTOR_CONFIG: &[LessonFieldExtractor] = &[
+    LessonFieldExtractor::required("Subject", |l| {
+        l.subjects
+            .first()
+            .map_or(String::new(), |subject| subject.clone())
+    }),
+    LessonFieldExtractor::required("Time", |l| {
+        format!(
+            "{} - {}",
+            l.start_time.format("%H:%M"),
+            l.end_time.format("%H:%M")
+        )
+    }),
+    LessonFieldExtractor::required("Teacher", |l| l.teachers.to_vec().join(", ")),
+    LessonFieldExtractor::required("Room", |l| l.rooms.to_vec().join(", ")),
+    LessonFieldExtractor::required("Status", |l| l.lesson_code.clone()),
+    LessonFieldExtractor::required("Additional Info", |l| {
+        l.subst_text.clone().unwrap_or_default()
+    }),
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Field {

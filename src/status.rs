@@ -58,11 +58,11 @@ impl StatusMessage {
             match lesson_info {
                 NearestLesson::Current(lesson) => {
                     msg.push_bold("Current Lesson:").nl();
-                    format_lesson(&mut msg, lesson, self.timezone);
+                    format_nearest_lesson(&mut msg, lesson, self.timezone);
                 }
                 NearestLesson::Next(lesson) => {
                     msg.push_bold("Next Lesson:").nl();
-                    format_lesson(&mut msg, lesson, self.timezone);
+                    format_nearest_lesson(&mut msg, lesson, self.timezone);
                 }
             }
             msg.nl();
@@ -179,7 +179,7 @@ fn find_nearest_lesson(timetable: &[db::models::Lesson], timezone: Tz) -> Option
 }
 
 /// Format a lesson for display in status message
-fn format_lesson(msg: &mut LabeledMessage, lesson: &db::models::Lesson, timezone: Tz) {
+fn format_nearest_lesson(msg: &mut LabeledMessage, lesson: &db::models::Lesson, timezone: Tz) {
     // Subject
     let subjects: Vec<_> = lesson.subjects.iter().map(|s| s.as_str()).collect();
     msg.push("  Subject: ")

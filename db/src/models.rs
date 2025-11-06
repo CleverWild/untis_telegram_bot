@@ -6,7 +6,10 @@
 // tweak these to match exact types and use `Insertable` / `AsChangeset` as
 // required.
 
-use crate::schema::{bot_states, lessons};
+use crate::{
+    schema::{bot_states, lessons},
+    utils::AsTrimmedStr,
+};
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use diesel::{AsChangeset, Identifiable, Insertable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
@@ -15,6 +18,11 @@ use uuid::Uuid;
 /// BotTask represents a bot worker configuration.
 #[derive(
     Debug, Clone, Queryable, Identifiable, Selectable, Serialize, Deserialize, restructed::Models,
+)]
+#[view(
+    NewBotTask,
+    derive(Insertable, Serialize, Deserialize),
+    attributes_with = "deriveless"
 )]
 #[patch(
     BotTaskChangeset,
@@ -25,18 +33,18 @@ use uuid::Uuid;
 #[diesel(table_name = bot_states)]
 pub struct BotTask {
     pub id: Uuid,
-    pub status_message_id: Option<i32>,
-    pub target_class_name: Option<String>,
-    pub untis_school: String,
     pub task_name: String,
+    pub target_class_name: Option<String>,
+    pub timezone: String,
+    pub untis_school: String,
     pub untis_login: String,
     pub untis_password: String,
-    pub updated_at: DateTime<Utc>,
     pub notification_chat_id: i64,
     pub notification_thread_id: Option<i32>,
     pub status_chat_id: i64,
     pub status_thread_id: Option<i32>,
-    pub timezone: String,
+    pub status_message_id: Option<i32>,
+    pub updated_at: DateTime<Utc>,
 }
 
 impl BotTask {
@@ -63,6 +71,23 @@ impl BotTask {
             status_chat_id,
             status_thread_id: None,
             timezone: "Europe/Berlin".to_string(),
+        }
+    }
+
+    pub fn bind_lesson_to_self(&self, lesson: UnownedLesson) -> NewLesson {
+        NewLesson {
+            bot_state: self.id,
+            lesson_id: lesson.lesson_id,
+            date: lesson.date,
+            end_time: lesson.end_time,
+            lesson_type: lesson.lesson_type,
+            start_time: lesson.start_time,
+            subst_text: lesson.subst_text,
+            lesson_code: lesson.lesson_code,
+            classes: lesson.classes,
+            rooms: lesson.rooms,
+            subjects: lesson.subjects,
+            teachers: lesson.teachers,
         }
     }
 
@@ -93,6 +118,7 @@ impl BotTask {
 
         diesel::insert_into(bot_states::table)
             .values(&new_state)
+            .returning(BotTask::as_returning())
             .get_result(&mut conn)
             .map_err(|e| eyre::eyre!("failed to insert bot_state: {e}"))
     }
@@ -128,6 +154,7 @@ impl BotTask {
 
         let updated = diesel::update(bot_states::table.filter(bot_states::id.eq(self.id)))
             .set(&changeset)
+            .returning(BotTask::as_returning())
             .get_result(&mut conn)
             .map_err(|e| eyre::eyre!("failed to update bot_state: {e}"))?;
 
@@ -157,6 +184,7 @@ impl BotTask {
                 .filter(bot_states::updated_at.eq(expected_updated_at)),
         )
         .set(&changeset)
+        .returning(BotTask::as_returning())
         .get_result(&mut conn)
         .optional()
         .map_err(|e| eyre::eyre!("failed to update bot_state with optimistic lock: {e}"))?;
@@ -294,7 +322,26 @@ impl BotTask {
 }
 
 #[derive(
-    Debug, Clone, Queryable, Identifiable, Selectable, Serialize, Deserialize, PartialEq, Eq,
+    Debug,
+    Clone,
+    Queryable,
+    Identifiable,
+    Selectable,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    restructed::Models,
+)]
+#[view(
+    UnownedLesson, 
+    derive(PartialEq, Eq)
+    omit(bot_state)
+)]
+#[view(
+    NewLesson,
+    derive(Insertable, Serialize, Deserialize),
+    attributes_with = "deriveless"
 )]
 #[diesel(table_name = lessons)]
 #[diesel(primary_key(lesson_id))]
@@ -386,6 +433,29 @@ impl Lesson {
     }
 }
 
+impl From<untis::Lesson> for UnownedLesson {
+    fn from(src: untis::Lesson) -> Self {
+        let subjects = src.subjects.iter().map(|i| i.name.clone()).collect();
+        let teachers = src.teachers.iter().map(|i| i.name.clone()).collect();
+        let rooms = src.rooms.iter().map(|i| i.name.clone()).collect();
+        let classes = src.classes.iter().map(|i| i.name.clone()).collect();
+
+        Self {
+            lesson_id: src.id as i64,
+            date: *src.date,
+            end_time: *src.end_time,
+            lesson_type: src.lesson_type.as_trimmed_json_string().unwrap(),
+            start_time: *src.start_time,
+            subst_text: src.subst_text,
+            lesson_code: src.code.as_trimmed_json_string().unwrap(),
+            classes,
+            rooms,
+            subjects,
+            teachers,
+        }
+    }
+}
+
 /// Delete all lessons with date before the specified date
 pub fn delete_lessons_before(before_date: chrono::NaiveDate) -> eyre::Result<usize> {
     use crate::diesel_impl::global_pool;
@@ -402,39 +472,21 @@ pub fn delete_lessons_before(before_date: chrono::NaiveDate) -> eyre::Result<usi
 
 // Insertable/Changeset helpers
 
-#[derive(Debug, Clone, Insertable, Serialize, Deserialize)]
-#[diesel(table_name = bot_states)]
-pub struct NewBotTask {
-    pub id: Uuid,
-    pub status_message_id: Option<i32>,
-    pub target_class_name: Option<String>,
-    pub untis_school: String,
-    pub task_name: String,
-    pub untis_login: String,
-    pub untis_password: String,
-    pub updated_at: DateTime<Utc>,
-    pub notification_chat_id: i64,
-    pub notification_thread_id: Option<i32>,
-    pub status_chat_id: i64,
-    pub status_thread_id: Option<i32>,
-    pub timezone: String,
-}
-
-// BotTaskChangeset is now generated by `restructed` via the #[patch] attribute on BotTask
-
-#[derive(Debug, Clone, Insertable, Serialize, Deserialize)]
-#[diesel(table_name = lessons)]
-pub struct NewLesson {
-    pub lesson_id: i64,
-    pub date: NaiveDate,
-    pub end_time: NaiveTime,
-    pub lesson_type: String,
-    pub start_time: NaiveTime,
-    pub subst_text: Option<String>,
-    pub lesson_code: String,
-    pub classes: Vec<String>,
-    pub rooms: Vec<String>,
-    pub subjects: Vec<String>,
-    pub teachers: Vec<String>,
-    pub bot_state: Uuid,
-}
+//todo!remove
+// #[derive(Debug, Clone, Insertable, Serialize, Deserialize)]
+// #[diesel(table_name = bot_states)]
+// pub struct NewBotTask {
+//     pub id: Uuid,
+//     pub status_message_id: Option<i32>,
+//     pub target_class_name: Option<String>,
+//     pub untis_school: String,
+//     pub task_name: String,
+//     pub untis_login: String,
+//     pub untis_password: String,
+//     pub updated_at: DateTime<Utc>,
+//     pub notification_chat_id: i64,
+//     pub notification_thread_id: Option<i32>,
+//     pub status_chat_id: i64,
+//     pub status_thread_id: Option<i32>,
+//     pub timezone: String,
+// }

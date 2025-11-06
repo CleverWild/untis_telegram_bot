@@ -3,5 +3,5 @@ Secrets.toml.shuttle*
 Secrets*.toml
 .shuttle*
 timetable.json
-*.instruction.md
+.github/instructions/*.md
 /.vscode
