@@ -152,7 +152,7 @@ async fn process_timetable(
         if !diffs.is_empty() {
             sort_diffs(&mut diffs);
 
-            tracing::info!("Diff was found: {:#?}", diffs);
+            tracing::debug!("Diff was found: {:#?}", diffs);
 
             let mut message = message::LabeledMessage::new();
             let mut prev_date: Option<NaiveDate> = None;
@@ -185,7 +185,7 @@ async fn process_timetable(
 
             if IS_PROD {
                 // Send message to production target
-                tracing::info!(
+                tracing::debug!(
                     "Sending to chat `{}` with topic `{:?}` message:\n{}",
                     notification_chat_id,
                     notification_thread_id,

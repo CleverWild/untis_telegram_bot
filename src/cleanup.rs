@@ -34,19 +34,22 @@ pub async fn daily_cleanup_loop() -> Result<Infallible, eyre::Report> {
 
         tracing::info!("Running daily cleanup of old lessons...");
 
-        if let Err(e) = cleanup_old_lessons().await {
-            tracing::error!("Failed to cleanup old lessons: {e}");
+        match cleanup_old_lessons().await {
+            Ok(deleted_count) => {
+                tracing::info!("Cleaned up {deleted_count} old lesson(s) from database");
+            }
+            Err(e) => {
+                tracing::error!("Failed to cleanup old lessons: {e}");
+            }
         }
     }
 }
 
 /// Remove lessons that have already occurred (date is in the past)
-async fn cleanup_old_lessons() -> eyre::Result<()> {
+async fn cleanup_old_lessons() -> eyre::Result<usize> {
     let today = chrono::Local::now().date_naive();
 
     let deleted_count = db::models::delete_lessons_before(today)?;
 
-    tracing::info!("Cleaned up {deleted_count} old lesson(s) from database");
-
-    Ok(())
+    Ok(deleted_count)
 }

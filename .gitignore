@@ -1,7 +1,5 @@
 /target
-Secrets.toml.shuttle*
 Secrets*.toml
-.shuttle*
-timetable.json
 .github/instructions/*.md
 /.vscode
+/logs

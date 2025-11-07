@@ -5,7 +5,7 @@ version = "0.1.5"
 
 [dependencies]
 chrono = { workspace = true }
-chrono-tz = {workspace = true}
+chrono-tz = { workspace = true }
 config = { workspace = true }
 db = { workspace = true }
 eyre.workspace = true
@@ -13,10 +13,12 @@ impl-tools.workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 strum = { workspace = true }
+tap = { workspace = true }
 teloxide = { workspace = true }
 thiserror = { workspace = true }
 tokio.workspace = true
 tracing = { workspace = true }
+tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
 untis = { path = "untis" }
 
@@ -37,9 +39,11 @@ restructed = "0.2.2"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 strum = { version = "0.27.2", features = ["derive"] }
+tap = { version = "1.0.1" }
 teloxide = { version = "0.17.0", features = ["macros"] }
 thiserror = "2.0.17"
 tokio = { version = "1.48.0" }
 tracing = "0.1.41"
+tracing-appender = "0.2.3"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 uuid = { version = "1.18.1", features = ["serde", "v4"] }

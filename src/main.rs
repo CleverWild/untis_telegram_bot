@@ -5,6 +5,10 @@ use std::{
 use teloxide::{Bot, prelude::ChatId};
 use tokio::task::JoinSet;
 use tracing::level_filters::LevelFilter;
+use tracing_appender::rolling::Rotation;
+use tracing_subscriber::{
+    prelude::__tracing_subscriber_SubscriberExt as _, util::SubscriberInitExt as _,
+};
 
 mod cleanup;
 mod diff_impl;
@@ -26,30 +30,63 @@ const DEBUG_TELEGRAM_CHAT: Chat = Chat {
 
 #[tokio::main]
 async fn main() {
-    let subscriber_builder = tracing_subscriber::fmt().with_env_filter(
-        tracing_subscriber::EnvFilter::builder()
-            .with_default_directive(LevelFilter::INFO.into())
-            .from_env_lossy()
-            .add_directive(
-                if IS_PROD {
-                    "untis_telegram_bot=info"
-                } else {
-                    "untis_telegram_bot=trace"
-                }
-                .parse()
-                .unwrap(),
-            ),
-    );
+    // Build a single subscriber graph and initialize ONCE to avoid double-init panics.
+    let env_filter = tracing_subscriber::EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env_lossy()
+        .add_directive(
+            if IS_PROD {
+                "untis_telegram_bot=info"
+            } else {
+                "untis_telegram_bot=trace"
+            }
+            .parse()
+            .unwrap(),
+        );
+
+    // Daily rolling file layer
+    std::fs::create_dir_all("logs").expect("Failed to create logs dir");
+    std::fs::remove_dir_all("logs").expect("Failed to clean up dir");
+    std::fs::create_dir_all("logs").expect("Failed to recreate logs dir");
+    let file_appender = tracing_appender::rolling::Builder::new()
+        .rotation(Rotation::DAILY)
+        .filename_suffix("log")
+        .build("logs")
+        .expect("Failed to build file appender");
+    let (writer, _writer_guard) = tracing_appender::non_blocking(file_appender);
+
     if IS_PROD {
-        subscriber_builder
-            .with_ansi(false)
+        // Console layer (no ANSI in prod by default)
+        let console_layer = tracing_subscriber::fmt::layer()
             .with_line_number(true)
+            .with_ansi(false);
+
+        let file_layer = tracing_subscriber::fmt::layer()
+            .with_line_number(true)
+            .with_ansi(false)
+            .with_writer(writer);
+
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(console_layer)
+            .with(file_layer)
             .init();
     } else {
-        subscriber_builder
+        // Pretty, colored console output for development
+        let console_layer = tracing_subscriber::fmt::layer()
             .pretty()
-            .with_ansi(true)
             .with_line_number(true)
+            .with_ansi(true);
+
+        let file_layer = tracing_subscriber::fmt::layer()
+            .with_line_number(true)
+            .with_ansi(false)
+            .with_writer(writer);
+
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(console_layer)
+            .with(file_layer)
             .init();
     }
 
@@ -189,45 +226,3 @@ async fn main() {
         }
     }
 }
-
-// fn make_whitelist() -> work::TaskInfo {
-//     // Load from environment variables with fallback to defaults
-//     let untis_school =
-//         std::env::var("UNTIS_SCHOOL").unwrap_or_else(|_| "KS-Waiblingen".to_string());
-//     let untis_login = std::env::var("UNTIS_LOGIN").unwrap_or_else(|_| "BrovkoOle".to_string());
-//     let untis_password =
-//         std::env::var("UNTIS_PASSWORD").unwrap_or_else(|_| "N6C4csN&^*a7vW".to_string());
-
-//     if IS_PROD {
-//         work::TaskInfo {
-//             uptime_since: Instant::now(),
-//             notification_chat: Chat {
-//                 // For supergroups/channels the real chat id = "-100" + <numeric from /c/>
-//                 id: ChatId(-1002951933538),
-//                 thread_id: Some(2),
-//             },
-//             status_chat: Chat {
-//                 id: ChatId(-1002951933538),
-//                 thread_id: Some(231),
-//             },
-//             status_msg_id: Some(MessageId(253)), // https://t.me/c/2951933538/231/253
-//             untis_school,
-//             untis_login,
-//             untis_password,
-//             target_class_name: None,
-//             task_name: "VABO1".to_string(),
-//         }
-//     } else {
-//         work::TaskInfo {
-//             uptime_since: Instant::now(),
-//             notification_chat: DEBUG_TELEGRAM_CHAT,
-//             status_chat: DEBUG_TELEGRAM_CHAT,
-//             status_msg_id: None,
-//             untis_school,
-//             untis_login,
-//             untis_password,
-//             target_class_name: None,
-//             task_name: "VABO1".to_string(),
-//         }
-//     }
-// }
