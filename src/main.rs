@@ -5,9 +5,8 @@ use std::{
 use teloxide::{Bot, prelude::ChatId};
 use tokio::task::JoinSet;
 use tracing::level_filters::LevelFilter;
-use tracing_appender::rolling::Rotation;
 use tracing_subscriber::{
-    prelude::__tracing_subscriber_SubscriberExt as _, util::SubscriberInitExt as _,
+    Layer as _, prelude::__tracing_subscriber_SubscriberExt as _, util::SubscriberInitExt as _,
 };
 
 mod cleanup;
@@ -44,32 +43,23 @@ async fn main() {
             .unwrap(),
         );
 
-    // Daily rolling file layer
-    std::fs::create_dir_all("logs").expect("Failed to create logs dir");
-    std::fs::remove_dir_all("logs").expect("Failed to clean up dir");
-    std::fs::create_dir_all("logs").expect("Failed to recreate logs dir");
-    let file_appender = tracing_appender::rolling::Builder::new()
-        .rotation(Rotation::DAILY)
-        .filename_suffix("log")
-        .build("logs")
-        .expect("Failed to build file appender");
-    let (writer, _writer_guard) = tracing_appender::non_blocking(file_appender);
-
     if IS_PROD {
         // Console layer (no ANSI in prod by default)
         let console_layer = tracing_subscriber::fmt::layer()
             .with_line_number(true)
             .with_ansi(false);
 
-        let file_layer = tracing_subscriber::fmt::layer()
-            .with_line_number(true)
-            .with_ansi(false)
-            .with_writer(writer);
+        // DB log layer should capture all levels including TRACE
+        let db_layer = db::logging::db_log_layer().with_filter(
+            tracing_subscriber::EnvFilter::builder()
+                .with_default_directive(LevelFilter::TRACE.into())
+                .from_env_lossy(),
+        );
 
         tracing_subscriber::registry()
             .with(env_filter)
             .with(console_layer)
-            .with(file_layer)
+            .with(db_layer)
             .init();
     } else {
         // Pretty, colored console output for development
@@ -78,15 +68,17 @@ async fn main() {
             .with_line_number(true)
             .with_ansi(true);
 
-        let file_layer = tracing_subscriber::fmt::layer()
-            .with_line_number(true)
-            .with_ansi(false)
-            .with_writer(writer);
+        // DB log layer should capture all levels including TRACE
+        let db_layer = db::logging::db_log_layer().with_filter(
+            tracing_subscriber::EnvFilter::builder()
+                .with_default_directive(LevelFilter::TRACE.into())
+                .from_env_lossy(),
+        );
 
         tracing_subscriber::registry()
             .with(env_filter)
             .with(console_layer)
-            .with(file_layer)
+            .with(db_layer)
             .init();
     }
 
@@ -110,7 +102,12 @@ async fn main() {
         tracing::error!("Failed to initialize database: {e}");
         panic!("Cannot continue without database");
     }
+
+    db::models::delete_logs_before(chrono::Utc::now()).unwrap();
     tracing::info!("Database initialized");
+
+    // Late start DB log worker after successful DB initialization
+    db::logging::start_db_log_worker();
 
     let mut join_handles = JoinSet::new();
     let mut running_tasks: HashMap<db::Uuid, tokio::task::AbortHandle> = HashMap::new();

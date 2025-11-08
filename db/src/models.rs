@@ -7,7 +7,7 @@
 // required.
 
 use crate::{
-    schema::{bot_states, lessons},
+    schema::{bot_states, lessons, logs},
     utils::AsTrimmedStr,
 };
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
@@ -470,23 +470,71 @@ pub fn delete_lessons_before(before_date: chrono::NaiveDate) -> eyre::Result<usi
         .map_err(|e| eyre::eyre!("failed to delete old lessons: {e}"))
 }
 
-// Insertable/Changeset helpers
 
-//todo!remove
-// #[derive(Debug, Clone, Insertable, Serialize, Deserialize)]
-// #[diesel(table_name = bot_states)]
-// pub struct NewBotTask {
-//     pub id: Uuid,
-//     pub status_message_id: Option<i32>,
-//     pub target_class_name: Option<String>,
-//     pub untis_school: String,
-//     pub task_name: String,
-//     pub untis_login: String,
-//     pub untis_password: String,
-//     pub updated_at: DateTime<Utc>,
-//     pub notification_chat_id: i64,
-//     pub notification_thread_id: Option<i32>,
-//     pub status_chat_id: i64,
-//     pub status_thread_id: Option<i32>,
-//     pub timezone: String,
-// }
+#[derive(Debug, Clone, Queryable, Identifiable, Selectable, Serialize, Deserialize, restructed::Models)]
+#[view(
+    NewLogEntry,
+    derive(Insertable, Serialize, Deserialize),
+    attributes_with = "deriveless",
+    omit(ts)
+)]
+#[diesel(table_name = logs)]
+pub struct LogEntry {
+    pub id: Uuid,
+    pub ts: DateTime<Utc>,
+    pub level: String,
+    pub target: Option<String>,
+    pub message: String,
+    pub fields: Option<serde_json::Value>,
+    pub file: Option<String>,
+    pub line: Option<i32>,
+}
+
+impl NewLogEntry {
+    /// Insert a new log entry and return the inserted row.
+    pub fn insert(self) -> eyre::Result<LogEntry> {
+        use crate::diesel_impl::global_pool;
+        use diesel::prelude::*;
+
+        let pool = global_pool()?;
+        let mut conn = pool.get()?;
+
+        diesel::insert_into(logs::table)
+            .values(&self)
+            .returning(LogEntry::as_returning())
+            .get_result(&mut conn)
+            .map_err(|e| eyre::eyre!("failed to insert log entry: {e}"))
+    }
+}
+
+impl LogEntry {
+    /// Fetch latest N log entries.
+    pub fn latest(limit: i64) -> eyre::Result<Vec<LogEntry>> {
+        use crate::diesel_impl::global_pool;
+        use diesel::prelude::*;
+
+        let pool = global_pool()?;
+        let mut conn = pool.get()?;
+
+        logs::table
+            .order(logs::ts.desc())
+            .limit(limit)
+            .select(LogEntry::as_select())
+            .load(&mut conn)
+            .map_err(|e| eyre::eyre!("failed to fetch log entries: {e}"))
+    }
+}
+
+/// Delete log entries with timestamp before provided UTC time.
+pub fn delete_logs_before(before: DateTime<Utc>) -> eyre::Result<usize> {
+    use crate::diesel_impl::global_pool;
+    use diesel::prelude::*;
+    use crate::schema::logs;
+
+    let pool = global_pool()?;
+    let mut conn = pool.get()?;
+
+    diesel::delete(logs::table.filter(logs::ts.lt(before)))
+        .execute(&mut conn)
+        .map_err(|e| eyre::eyre!("failed to delete old logs: {e}"))
+}

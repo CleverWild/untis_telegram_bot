@@ -130,7 +130,7 @@ async fn process_timetable(
     tracing::debug!("Fetching timetable");
 
     let date =
-        untis::Date(next_friday(chrono::Local::now().date_naive()) + chrono::Duration::days(14));
+        untis::Date(next_friday(chrono::Local::now().date_naive()) + chrono::Duration::days(7));
     let timetable = match target_class_name {
         Some(class_name) => {
             let classes = ctx.untis_client.classes().await?;
@@ -273,8 +273,7 @@ async fn update_status(ctx: &mut WorkerContext, tz: chrono_tz::Tz) -> Result<(),
         .collect();
 
     let status_message =
-        crate::status::StatusMessage::new(homeworks, &timetable, ctx.engaged_at, tz)
-            .into_message();
+        crate::status::StatusMessage::new(homeworks, &timetable, ctx.engaged_at, tz).into_message();
 
     if let Some(message_id) = ctx.task.status_message_id {
         if let Err(e) = edit_message(
