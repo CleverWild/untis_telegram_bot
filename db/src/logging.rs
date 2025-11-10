@@ -69,15 +69,9 @@ fn ensure_worker_started() {
     WORKER_STARTED.set(()).unwrap();
 }
 
+#[derive(Default)]
 /// Tracing layer that forwards events into the `logs` table via a background worker.
 pub struct DbLogLayer {}
-
-impl DbLogLayer {
-    pub fn new() -> Self {
-        // Do NOT start worker yet; allow late activation after DB init.
-        Self {}
-    }
-}
 
 /// Explicitly start the background logging worker (safe to call multiple times).
 pub fn start_db_log_worker() {
@@ -181,5 +175,5 @@ where
 
 /// Helper to create a boxed layer to avoid type issues at call site.
 pub fn db_log_layer() -> DbLogLayer {
-    DbLogLayer::new()
+    DbLogLayer::default()
 }

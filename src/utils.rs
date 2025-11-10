@@ -27,33 +27,44 @@ pub fn sort_diffs(diffs: &mut Vec<Diff>) {
     })
 }
 
-pub async fn send_message(bot: &Bot, chat: Chat, text: String) -> Result<Message, eyre::Report> {
-    let mut req = bot
-        .send_message(chat.id, text)
-        .disable_link_preview(true)
-        .parse_mode(teloxide::types::ParseMode::MarkdownV2);
-
-    if let Some(thread_id) = chat.thread_id {
-        req = req.message_thread_id(teloxide::types::ThreadId(teloxide::types::MessageId(
-            thread_id,
-        )));
-    }
-
-    req.clone().send().await.map_err(|e| eyre::eyre!(e))
-}
-
-pub async fn edit_message(
+#[tracing::instrument(skip(bot))]
+pub async fn send_or_edit_message(
     bot: &Bot,
     chat: Chat,
-    message_id: MessageId,
     text: String,
+    message_id: &mut Option<i32>,
 ) -> Result<Message, eyre::Report> {
-    bot.edit_message_text(chat.id, message_id, text.clone())
-        .disable_link_preview(true)
-        .parse_mode(teloxide::types::ParseMode::MarkdownV2)
-        .send()
-        .await
-        .map_err(|e| eyre::eyre!(e))
+    let message = if let Some(msg_id) = message_id {
+        tracing::debug!("Editing existing message");
+        bot.edit_message_text(chat.id, MessageId(*msg_id), text.clone())
+            .disable_link_preview(true)
+            .parse_mode(teloxide::types::ParseMode::MarkdownV2)
+            .send()
+            .await
+            .map_err(|e| eyre::eyre!(e))?
+    } else {
+        tracing::debug!("Sending new message");
+        let mut req = bot
+            .send_message(chat.id, text)
+            .disable_link_preview(true)
+            .parse_mode(teloxide::types::ParseMode::MarkdownV2);
+
+        if let Some(thread_id) = chat.thread_id {
+            req = req.message_thread_id(teloxide::types::ThreadId(teloxide::types::MessageId(
+                thread_id,
+            )));
+        }
+
+        let message = req.send().await.map_err(|e| eyre::eyre!(e))?;
+        *message_id = Some(message.id.0);
+        message
+    };
+
+    tracing::trace!(
+        "Sent/edited message: {}",
+        message.text().unwrap_or("<no text>")
+    );
+    Ok(message)
 }
 
 pub fn align_next_minute() -> Instant {

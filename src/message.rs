@@ -148,7 +148,7 @@ impl Display for LabeledMessage {
 
 #[cfg(test)]
 mod tests {
-    use crate::{DEBUG_TELEGRAM_CHAT, diff_impl::Diff, utils::send_message};
+    use crate::{DEBUG_TELEGRAM_CHAT, diff_impl::Diff, utils::send_or_edit_message};
 
     use super::*;
     use teloxide::Bot;
@@ -287,7 +287,9 @@ mod tests {
             msg.extend(msg_part.to_owned());
 
             println!("===== Sending test message {msg} =====");
-            if let Err(e) = send_message(&bot, DEBUG_TELEGRAM_CHAT, msg.to_string()).await {
+            if let Err(e) =
+                send_or_edit_message(&bot, DEBUG_TELEGRAM_CHAT, msg.to_string(), &mut None).await
+            {
                 panic!("Failed to send test message #{i}: {e:?}");
             }
             // Small delay to avoid hitting flood limits.

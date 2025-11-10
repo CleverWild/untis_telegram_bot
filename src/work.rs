@@ -9,7 +9,7 @@ use crate::{
     diff_impl::Diff,
     message,
     message_formatter::{apply_debug_info, format_message},
-    utils::{edit_message, next_friday, send_message, sort_diffs},
+    utils::{next_friday, send_or_edit_message, sort_diffs},
 };
 use db::{DateTime, Utc, models::BotTask};
 
@@ -191,18 +191,25 @@ async fn process_timetable(
                     notification_thread_id,
                     message
                 );
-                send_message(
+                send_or_edit_message(
                     &ctx.bot,
                     Chat {
                         id: ChatId(*notification_chat_id),
                         thread_id: *notification_thread_id,
                     },
                     message.filter_normal().to_string(),
+                    &mut None,
                 )
                 .await?;
             }
             // Send message to debug target
-            send_message(&ctx.bot, DEBUG_TELEGRAM_CHAT, message.to_string()).await?;
+            send_or_edit_message(
+                &ctx.bot,
+                DEBUG_TELEGRAM_CHAT,
+                message.to_string(),
+                &mut None,
+            )
+            .await?;
         }
     }
 
@@ -275,34 +282,44 @@ async fn update_status(ctx: &mut WorkerContext, tz: chrono_tz::Tz) -> Result<(),
     let status_message =
         crate::status::StatusMessage::new(homeworks, &timetable, ctx.engaged_at, tz).into_message();
 
-    if let Some(message_id) = ctx.task.status_message_id {
-        if let Err(e) = edit_message(
-            &ctx.bot,
-            Chat {
-                id: ChatId(ctx.task.status_chat_id),
-                thread_id: ctx.task.status_thread_id,
-            },
-            MessageId(message_id),
-            status_message.to_string(),
-        )
-        .await
-        {
-            tracing::warn!("Failed to edit status message: {e}");
-            ctx.task.status_message_id = None;
-        }
-    } else {
-        tracing::warn!("Re-sending status message");
-        let msg = send_message(
-            &ctx.bot,
-            Chat {
-                id: ChatId(ctx.task.status_chat_id),
-                thread_id: ctx.task.status_thread_id,
-            },
-            status_message.to_string(),
-        )
-        .await?;
-        ctx.task.status_message_id.replace(msg.id.0);
-    }
+    // if let Some(message_id) = ctx.task.status_message_id {
+    //     if let Err(e) = edit_message(
+    //         &ctx.bot,
+    //         Chat {
+    //             id: ChatId(ctx.task.status_chat_id),
+    //             thread_id: ctx.task.status_thread_id,
+    //         },
+    //         MessageId(message_id),
+    //         status_message.to_string(),
+    //     )
+    //     .await
+    //     {
+    //         tracing::warn!("Failed to edit status message: {e}");
+    //         ctx.task.status_message_id = None;
+    //     }
+    // } else {
+    //     tracing::warn!("Re-sending status message");
+    //     let msg = send_message(
+    //         &ctx.bot,
+    //         Chat {
+    //             id: ChatId(ctx.task.status_chat_id),
+    //             thread_id: ctx.task.status_thread_id,
+    //         },
+    //         status_message.to_string(),
+    //     )
+    //     .await?;
+    //     ctx.task.status_message_id.replace(msg.id.0);
+    // }
+    send_or_edit_message(
+        &ctx.bot,
+        Chat {
+            id: ChatId(ctx.task.status_chat_id),
+            thread_id: ctx.task.status_thread_id,
+        },
+        status_message.to_string(),
+        &mut ctx.task.status_message_id,
+    )
+    .await?;
 
     Ok(())
 }

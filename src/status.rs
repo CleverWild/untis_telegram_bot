@@ -71,7 +71,7 @@ impl StatusMessage {
         msg.push_bold("Homework list:").nl();
 
         if self.homeworks.is_empty() {
-            msg.push_code_inline("Empty :)").nl();
+            msg.push_code_inline("Empty :)").nl().nl();
         } else {
             for hw in self.homeworks {
                 msg.push("• Lesson: ")
