@@ -191,7 +191,7 @@ async fn process_timetable(
                     notification_thread_id,
                     message
                 );
-                send_or_edit_message(
+                if let Err(e) = send_or_edit_message(
                     &ctx.bot,
                     Chat {
                         id: ChatId(*notification_chat_id),
@@ -200,16 +200,22 @@ async fn process_timetable(
                     message.filter_normal().to_string(),
                     &mut None,
                 )
-                .await?;
+                .await
+                {
+                    tracing::error!("Failed to send/edit notification message: {e}");
+                }
             }
             // Send message to debug target
-            send_or_edit_message(
+            if let Err(e) = send_or_edit_message(
                 &ctx.bot,
                 DEBUG_TELEGRAM_CHAT,
                 message.to_string(),
                 &mut None,
             )
-            .await?;
+            .await
+            {
+                tracing::error!("Failed to send/edit debug notification message: {e}");
+            }
         }
     }
 
@@ -310,7 +316,7 @@ async fn update_status(ctx: &mut WorkerContext, tz: chrono_tz::Tz) -> Result<(),
     //     .await?;
     //     ctx.task.status_message_id.replace(msg.id.0);
     // }
-    send_or_edit_message(
+    if let Err(e) = send_or_edit_message(
         &ctx.bot,
         Chat {
             id: ChatId(ctx.task.status_chat_id),
@@ -319,7 +325,10 @@ async fn update_status(ctx: &mut WorkerContext, tz: chrono_tz::Tz) -> Result<(),
         status_message.to_string(),
         &mut ctx.task.status_message_id,
     )
-    .await?;
+    .await
+    {
+        tracing::error!("Failed to send/edit status message: {e}");
+    }
 
     Ok(())
 }
