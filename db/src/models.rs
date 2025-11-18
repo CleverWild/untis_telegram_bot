@@ -8,11 +8,11 @@
 
 use crate::{
     schema::{bot_states, lessons, logs},
-    utils::AsTrimmedStr,
 };
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use diesel::{AsChangeset, Identifiable, Insertable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
+use diesel_derive_enum::DbEnum;
 use uuid::Uuid;
 
 /// BotTask represents a bot worker configuration.
@@ -321,6 +321,18 @@ impl BotTask {
     }
 }
 
+/// Represents the status of a lesson (regular, cancelled, etc.)
+#[derive(DbEnum, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, strum::Display, Default)]
+#[ExistingTypePath = "crate::schema::sql_types::LessonCode"]
+#[DbValueStyle = "snake_case"]
+#[serde(rename_all = "lowercase")]
+pub enum LessonCode {
+    #[default]
+    Regular,
+    Irregular,
+    Cancelled,
+}
+
 #[derive(
     Debug,
     Clone,
@@ -353,7 +365,7 @@ pub struct Lesson {
     pub lesson_type: String,
     pub start_time: NaiveTime,
     pub subst_text: Option<String>,
-    pub lesson_code: String,
+    pub lesson_code: LessonCode,
     pub classes: Vec<String>,
     pub rooms: Vec<String>,
     pub subjects: Vec<String>,
@@ -430,29 +442,6 @@ impl Lesson {
         diesel::delete(lessons::table.filter(lessons::lesson_id.eq(self.lesson_id)))
             .execute(&mut conn)
             .map_err(|e| eyre::eyre!("failed to delete lesson: {e}"))
-    }
-}
-
-impl From<untis::Lesson> for UnownedLesson {
-    fn from(src: untis::Lesson) -> Self {
-        let subjects = src.subjects.iter().map(|i| i.name.clone()).collect();
-        let teachers = src.teachers.iter().map(|i| i.name.clone()).collect();
-        let rooms = src.rooms.iter().map(|i| i.name.clone()).collect();
-        let classes = src.classes.iter().map(|i| i.name.clone()).collect();
-
-        Self {
-            lesson_id: src.id as i64,
-            date: *src.date,
-            end_time: *src.end_time,
-            lesson_type: src.lesson_type.as_trimmed_json_string().unwrap(),
-            start_time: *src.start_time,
-            subst_text: src.subst_text,
-            lesson_code: src.code.as_trimmed_json_string().unwrap(),
-            classes,
-            rooms,
-            subjects,
-            teachers,
-        }
     }
 }
 

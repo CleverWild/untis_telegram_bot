@@ -1,5 +1,5 @@
 use chrono::NaiveDate;
-use untis::LessonCode;
+use db::models::LessonCode;
 
 #[derive(Debug, Clone)]
 pub enum Diff<'a> {

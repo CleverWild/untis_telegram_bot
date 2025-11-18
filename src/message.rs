@@ -151,8 +151,9 @@ mod tests {
     use crate::{DEBUG_TELEGRAM_CHAT, diff_impl::Diff, utils::send_or_edit_message};
 
     use super::*;
+    use db::models::LessonCode;
     use teloxide::Bot;
-    use untis::{IdItem, Lesson, LessonCode, LessonType};
+    use untis::{IdItem, Lesson, LessonType};
 
     // Helper function to create test IdItem
     fn test_id_item(id: isize, name: &str) -> IdItem {
@@ -311,10 +312,7 @@ mod tests {
             lesson_id: lesson.id as i64,
             date: lesson.date.0,
             end_time: lesson.end_time.0,
-            lesson_code: serde_json::to_string(&lesson.code)
-                .unwrap()
-                .trim_matches('"')
-                .to_string(),
+            lesson_code: lesson.code,
             lesson_type: serde_json::to_string(&lesson.lesson_type)
                 .unwrap()
                 .trim_matches('"')

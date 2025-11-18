@@ -18,7 +18,17 @@ diesel::table! {
     }
 }
 
+// Custom Diesel SQL types for Postgres
+pub mod sql_types {
+    #[derive(diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "lesson_code"))]
+    pub struct LessonCode;
+}
+
 diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::LessonCode;
+
     lessons (lesson_id) {
         bot_state -> Uuid,
         lesson_id -> Int8,
@@ -27,7 +37,7 @@ diesel::table! {
         lesson_type -> Text,
         start_time -> Time,
         subst_text -> Nullable<Text>,
-        lesson_code -> Text,
+        lesson_code -> LessonCode,
         classes -> Array<Text>,
         rooms -> Array<Text>,
         subjects -> Array<Text>,

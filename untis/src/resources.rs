@@ -1,4 +1,5 @@
 use crate::datetime::{Date, Time};
+use db::{models::LessonCode, utils::AsTrimmedStr as _};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -313,7 +314,7 @@ pub struct Student {
 }
 
 /// A school lesson.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Lesson {
     /// The lesson's id.
@@ -368,6 +369,33 @@ pub struct Lesson {
     /// The lesson's activity type.
     #[serde(default = "default_activity_type")]
     pub activity_type: String,
+}
+
+impl From<Lesson> for db::models::UnownedLesson {
+    fn from(src: Lesson) -> Self {
+        let subjects = src.subjects.iter().map(|i| i.name.clone()).collect();
+        let teachers = src.teachers.iter().map(|i| i.name.clone()).collect();
+        let rooms = src.rooms.iter().map(|i| i.name.clone()).collect();
+        let classes = src.classes.iter().map(|i| i.name.clone()).collect();
+
+        Self {
+            lesson_id: src.id as i64,
+            date: *src.date,
+            end_time: *src.end_time,
+            lesson_type: src.lesson_type.as_trimmed_json_string().unwrap(),
+            start_time: *src.start_time,
+            subst_text: src.subst_text,
+            lesson_code: match src.code {
+                LessonCode::Regular => db::models::LessonCode::Regular,
+                LessonCode::Irregular => db::models::LessonCode::Irregular,
+                LessonCode::Cancelled => db::models::LessonCode::Cancelled,
+            },
+            classes,
+            rooms,
+            subjects,
+            teachers,
+        }
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
@@ -512,18 +540,6 @@ pub struct Homework {
 
     pub is_completed: bool,
     pub teacher: TeacherBase,
-}
-
-/// Represents the status of a lesson (regular, cancelled, etc.)
-#[derive(
-    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Hash, Debug, Serialize, Deserialize, strum::Display
-)]
-#[serde(rename_all = "lowercase")]
-pub enum LessonCode {
-    #[default]
-    Regular,
-    Irregular,
-    Cancelled,
 }
 
 /// Represents the type of lesson.

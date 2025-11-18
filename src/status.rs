@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use chrono::{DateTime, NaiveTime, Utc};
+use chrono::{DateTime, NaiveTime, Timelike as _, Utc};
 use chrono_tz::Tz;
 use untis::Homework;
 
@@ -147,14 +147,17 @@ fn into_uptime(d: Duration) -> String {
 
 /// Find the current lesson (if ongoing) or the next upcoming lesson
 fn find_nearest_lesson(timetable: &[db::models::Lesson], timezone: Tz) -> Option<NearestLesson> {
-    use chrono::Timelike;
+    // filter out lessons that are cancelled
+    let timetable = timetable
+        .iter()
+        .filter(|lesson| lesson.lesson_code != db::models::LessonCode::Cancelled);
 
     let now = Utc::now().with_timezone(&timezone);
     let today = now.date_naive();
     let current_time = NaiveTime::from_hms_opt(now.hour(), now.minute(), 0)?;
 
     // First, check if there's a current lesson (today, ongoing)
-    for lesson in timetable {
+    for lesson in timetable.clone() {
         if lesson.date == today
             && lesson.start_time <= current_time
             && current_time < lesson.end_time
@@ -165,7 +168,6 @@ fn find_nearest_lesson(timetable: &[db::models::Lesson], timezone: Tz) -> Option
 
     // If no current lesson, find the next one
     let mut future_lessons: Vec<_> = timetable
-        .iter()
         .filter(|lesson| {
             lesson.date > today || (lesson.date == today && lesson.start_time > current_time)
         })

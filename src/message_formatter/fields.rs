@@ -105,7 +105,11 @@ pub const FIELD_EXTRACTOR_CONFIG: &[LessonFieldExtractor] = &[
     }),
     LessonFieldExtractor::required("Teacher", |l| l.teachers.to_vec().join(", ")),
     LessonFieldExtractor::required("Room", |l| l.rooms.to_vec().join(", ")),
-    LessonFieldExtractor::required("Status", |l| l.lesson_code.clone()),
+    LessonFieldExtractor::required("Status", |l| match l.lesson_code {
+        db::models::LessonCode::Regular => "regular".to_string(),
+        db::models::LessonCode::Irregular => "irregular".to_string(),
+        db::models::LessonCode::Cancelled => "cancelled".to_string(),
+    }),
     LessonFieldExtractor::required("Additional Info", |l| {
         l.subst_text.clone().unwrap_or_default()
     }),
