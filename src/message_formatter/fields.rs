@@ -2,9 +2,6 @@
 
 use crate::message::LabeledMessage;
 
-/// Default buffer capacity for message formatting to avoid reallocations
-pub const DEFAULT_BUFFER_CAPACITY: usize = 512;
-
 pub const FIELD_SEPARATOR: &str = ": ";
 pub const CHANGES_SEPARATOR: &str = " → ";
 
@@ -67,29 +64,6 @@ impl LessonFieldExtractor {
     }
 }
 
-// /// Registry of all available lesson fields
-// pub struct FieldRegistry;
-
-// impl FieldRegistry {
-//     /// Returns all standard lesson fields
-//     pub const fn standard_fields() -> [LessonField; 6] {
-//         [
-//             LessonField::required("Subject", |l| {
-//                 l.subjects
-//                     .first()
-//                     .map_or(String::new(), |subject| subject.clone())
-//             }),
-//             LessonField::required("Time", |l| format!("{} - {}", l.start_time, l.end_time)),
-//             LessonField::required("Teacher", |l| l.teachers.to_vec().join(", ")),
-//             LessonField::required("Room", |l| l.rooms.to_vec().join(", ")),
-//             LessonField::required("Status", |l| l.lesson_code.clone()),
-//             LessonField::required("Additional Info", |l| {
-//                 l.subst_text.clone().unwrap_or_default()
-//             }),
-//         ]
-//     }
-// }
-
 pub const FIELD_EXTRACTOR_CONFIG: &[LessonFieldExtractor] = &[
     LessonFieldExtractor::required("Subject", |l| {
         l.subjects
@@ -110,7 +84,7 @@ pub const FIELD_EXTRACTOR_CONFIG: &[LessonFieldExtractor] = &[
         db::models::LessonCode::Irregular => "irregular".to_string(),
         db::models::LessonCode::Cancelled => "cancelled".to_string(),
     }),
-    LessonFieldExtractor::required("Additional Info", |l| {
+    LessonFieldExtractor::non_empty("Additional Info", |l| {
         l.subst_text.clone().unwrap_or_default()
     }),
 ];

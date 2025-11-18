@@ -40,7 +40,8 @@ impl StatusMessage {
         };
 
         // Find nearest lesson
-        let current_or_next_lesson = find_nearest_lesson(timetable, timezone);
+        let current_or_next_lesson =
+            find_nearest_lesson(timetable, Utc::now().with_timezone(&timezone));
 
         Self {
             homeworks: sorted_hw,
@@ -146,38 +147,35 @@ fn into_uptime(d: Duration) -> String {
 }
 
 /// Find the current lesson (if ongoing) or the next upcoming lesson
-fn find_nearest_lesson(timetable: &[db::models::Lesson], timezone: Tz) -> Option<NearestLesson> {
-    // filter out lessons that are cancelled
-    let timetable = timetable
+fn find_nearest_lesson(
+    timetable: &[db::models::Lesson],
+    target_time: DateTime<Tz>,
+) -> Option<NearestLesson> {
+    // Create an iterator over non-cancelled lessons
+    let lessons_iter = timetable
         .iter()
         .filter(|lesson| lesson.lesson_code != db::models::LessonCode::Cancelled);
 
-    let now = Utc::now().with_timezone(&timezone);
-    let today = now.date_naive();
-    let current_time = NaiveTime::from_hms_opt(now.hour(), now.minute(), 0)?;
+    let date = target_time.date_naive();
+    let time = NaiveTime::from_hms_opt(target_time.hour(), target_time.minute(), 0)?;
 
-    // First, check if there's a current lesson (today, ongoing)
-    for lesson in timetable.clone() {
-        if lesson.date == today
-            && lesson.start_time <= current_time
-            && current_time < lesson.end_time
-        {
-            return Some(NearestLesson::Current(lesson.clone()));
-        }
+    // First, check if there's a current lesson (today and ongoing)
+    if let Some(current) = lessons_iter
+        .clone()
+        .find(|lesson| lesson.date == date && lesson.start_time <= time && time < lesson.end_time)
+    {
+        return Some(NearestLesson::Current(current.clone()));
     }
 
-    // If no current lesson, find the next one
-    let mut future_lessons: Vec<_> = timetable
+    // If no current lesson, pick the next upcoming one (smallest date/time > now)
+    lessons_iter
+        .clone()
         .filter(|lesson| {
-            lesson.date > today || (lesson.date == today && lesson.start_time > current_time)
+            lesson.date > date || (lesson.date == date && lesson.start_time > time)
         })
-        .collect();
-
-    future_lessons.sort_by_key(|lesson| (lesson.date, lesson.start_time));
-
-    future_lessons
-        .first()
-        .map(|&lesson| NearestLesson::Next(lesson.clone()))
+        .cloned()
+        .min_by_key(|lesson| (lesson.date, lesson.start_time))
+        .map(NearestLesson::Next)
 }
 
 /// Format a lesson for display in status message

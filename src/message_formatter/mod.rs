@@ -66,7 +66,7 @@ impl LessonDiffBlock {
                 MessageField::Normal(field) => {
                     msg.push(field.name);
                     msg.push(FIELD_SEPARATOR);
-                    msg.push(&field.value);
+                    msg.push_code_inline(&field.value);
                 }
                 MessageField::Changed(diff) => {
                     if let Some(formatted) = diff.format() {
